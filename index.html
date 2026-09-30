@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alerta Dengue La Vega</title>
+<meta name="description" content="Mapa ciudadano de criaderos de mosquitos y zonas de prevención de dengue en La Vega, República Dominicana.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --paper: #FFFFFF; --ink: #15212B; --muted: #56636F; --rain: #1E5A94; --surface: #EEF3F7; --line: #D5DDE4;
+    --alert: #C0342B; --warn: #E3A21A; --calm: #CFE3D6; --empty: #E3E8ED; --clean: #2E7D4F;
+    font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--paper);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  body { margin: 0; font-size: 1.0625rem; line-height: 1.55; }
+  a { color: var(--rain); }
+  :focus-visible { outline: 3px solid var(--rain); outline-offset: 2px; }
+
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+         padding: 1rem clamp(1rem, 4vw, 2.5rem); border-bottom: 1px solid var(--line); }
+  .marca { font-weight: 700; font-size: 1.125rem; color: var(--ink); text-decoration: none; }
+  .estado { margin: 0; color: var(--muted); font-size: 0.9375rem; }
+  .estado.demo { color: var(--alert); font-weight: 700; }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+  .situacion { padding: clamp(1.75rem, 5vw, 3.25rem) 0 1.25rem; max-width: 46rem; }
+  h1 { font-size: clamp(2rem, 6vw, 3.25rem); line-height: 1.08; margin: 0 0 0.75rem; letter-spacing: -0.01em; }
+  .sub { margin: 0; color: var(--muted); font-size: 1.125rem; max-width: 40rem; }
+  .aviso-demo { margin-top: 1rem; padding: 0.625rem 0.875rem; border-left: 4px solid var(--alert); background: #FBEDEC; font-size: 0.9375rem; }
+
+  #mapa { height: clamp(360px, 62vh, 620px); border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0.75rem 0 0; padding: 0; list-style: none; font-size: 0.9375rem; color: var(--muted); }
+  .leyenda li { display: flex; align-items: center; gap: 0.45rem; }
+  .sw { width: 1rem; height: 1rem; border-radius: 3px; flex: none; }
+  .pt { width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; border: 2px solid var(--ink); }
+
+  .cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1.5rem; margin: 2rem 0 0; padding: 1.5rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .cifras div { margin: 0; }
+  .cifras dt { color: var(--muted); font-size: 0.9375rem; }
+  .cifras dd { margin: 0.15rem 0 0; font-size: 2.25rem; font-weight: 700; line-height: 1.1; }
+
+  section.bloque { padding: 2.75rem 0 0; max-width: 46rem; }
+  h2 { font-size: 1.625rem; line-height: 1.2; margin: 0 0 0.75rem; }
+  .canales { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
+  .boton { font: inherit; font-weight: 700; font-size: 1rem; padding: 0.8rem 1.2rem; border-radius: 6px; cursor: pointer;
+           border: 2px solid var(--rain); background: var(--paper); color: var(--rain); text-decoration: none; display: inline-block; }
+  .boton.primario { background: var(--rain); color: #fff; }
+  .boton:disabled { opacity: 0.55; cursor: progress; }
+  .boton.sec { border-color: var(--line); color: var(--ink); font-weight: 400; padding: 0.55rem 0.9rem; }
+
+  form { margin-top: 1.5rem; padding: 1.25rem; background: var(--surface); border-radius: 6px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 1.25rem; }
+  legend, label.campo { display: block; font-weight: 700; margin: 0 0 0.4rem; }
+  .opciones { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+  .opciones label { display: flex; align-items: center; gap: 0.4rem; }
+  select { font: inherit; width: 100%; padding: 0.65rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; margin-bottom: 1.1rem; color: var(--ink); }
+  input[type=radio], input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--rain); }
+  .ayuda { color: var(--muted); font-size: 0.9375rem; margin: 0 0 0.75rem; }
+  #mini-mapa { height: 260px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 0.75rem; }
+  .fila { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.1rem; }
+  .fila .ayuda { margin: 0; }
+  .check { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0 0 1.25rem; }
+  .check input { margin-top: 0.2rem; flex: none; }
+  .trampa { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  #form-msg { margin: 1rem 0 0; font-weight: 700; }
+  #form-msg.error { color: var(--alert); }
+  .urgente { margin-top: 1rem; padding: 1rem; background: var(--alert); color: #fff; border-radius: 6px; font-weight: 700; }
+  .urgente a { color: #fff; }
+
+  .alarma { margin-top: 2.75rem; padding: 1.5rem 1.5rem 1.25rem; border-left: 6px solid var(--alert); background: #FBEDEC; max-width: 46rem; }
+  .alarma ul { padding-left: 1.2rem; margin: 0.5rem 0 1rem; }
+  .alarma li { margin-bottom: 0.3rem; }
+  .alarma p { margin: 0 0 0.75rem; }
+  .tel { font-weight: 700; font-size: 1.25rem; }
+
+  footer { max-width: 1120px; margin: 3.5rem auto 0; padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 2.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9375rem; }
+  footer p { max-width: 46rem; margin: 0 0 0.6rem; }
+
+  .leaflet-popup-content { font-family: inherit; font-size: 0.9375rem; line-height: 1.45; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="marca" href="./">Alerta Dengue La Vega</a>
+  <p id="estado" class="estado" aria-live="polite">Cargando datos…</p>
+</header>
+
+<main>
+  <section class="situacion">
+    <h1 id="titular">Cargando la situación de esta semana…</h1>
+    <p id="subtitular" class="sub"></p>
+    <p id="aviso-demo" class="aviso-demo" hidden>Datos simulados para demostración. No representan la situación real de La Vega.</p>
+  </section>
+
+  <div id="mapa" role="region" aria-label="Mapa de zonas de prevención y criaderos"></div>
+  <ul class="leyenda" aria-label="Leyenda del mapa">
+    <li><span class="sw" style="background:var(--alert)"></span>Zona prioritaria</li>
+    <li><span class="sw" style="background:var(--warn)"></span>En vigilancia</li>
+    <li><span class="sw" style="background:var(--calm)"></span>Sin aumento de fiebre</li>
+    <li><span class="sw" style="background:var(--empty)"></span>Sin datos suficientes</li>
+    <li><span class="pt" style="background:var(--ink)"></span>Criadero confirmado</li>
+    <li><span class="pt" style="background:#fff;border-color:var(--clean)"></span>Criadero ya limpiado</li>
+  </ul>
+
+  <dl class="cifras">
+    <div><dt>Zonas prioritarias</dt><dd id="c-tension">–</dd></div>
+    <div><dt>Zonas en vigilancia</dt><dd id="c-vig">–</dd></div>
+    <div><dt>Criaderos por limpiar</dt><dd id="c-conf">–</dd></div>
+    <div><dt>Criaderos limpiados</dt><dd id="c-aten">–</dd></div>
+  </dl>
+
+  <section class="bloque" id="reportar">
+    <h2>Reporta lo que ves</h2>
+    <p>Un neumático con agua, un tanque destapado o basura acumulada bastan para criar mosquitos. Si ves uno, repórtalo. Si alguien en tu casa tiene fiebre, avísanos de forma anónima: así sabemos qué zonas necesitan ayuda antes de que sea tarde.</p>
+    <div class="canales">
+      <a id="btn-telegram" class="boton primario" href="#" hidden>Reportar por Telegram</a>
+      <button id="abrir-form" class="boton" type="button" aria-expanded="false" aria-controls="formulario">Reportar desde esta página</button>
+    </div>
+
+    <form id="formulario" hidden novalidate>
+      <fieldset>
+        <legend>¿Qué quieres reportar?</legend>
+        <div class="opciones">
+          <label><input type="radio" name="tipo" value="criadero" checked> Un criadero</label>
+          <label><input type="radio" name="tipo" value="fiebre"> Fiebre en mi casa</label>
+        </div>
+      </fieldset>
+
+      <div id="f-criadero">
+        <p class="ayuda">Toca el mapa para marcar el lugar, o usa tu ubicación si estás allí.</p>
+        <div id="mini-mapa" aria-label="Mapa para marcar el criadero"></div>
+        <div class="fila">
+          <button id="mi-ubicacion" class="boton sec" type="button">Usar mi ubicación</button>
+          <p id="ubic-txt" class="ayuda" aria-live="polite">Sin punto marcado.</p>
+        </div>
+        <label class="campo" for="categoria">Tipo de criadero</label>
+        <select id="categoria">
+          <option value="neumaticos">Neumáticos</option>
+          <option value="recipientes">Recipientes o envases</option>
+          <option value="tanques">Tanques o tinacos destapados</option>
+          <option value="basura">Basura acumulada o vertedero</option>
+          <option value="agua">Aguas estancadas o cunetas</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+
+      <div id="f-fiebre" hidden>
+        <p class="ayuda">Es anónimo. No pedimos nombre ni teléfono, y tu ubicación no sale de tu móvil: solo la usamos para elegir el sector.</p>
+        <label class="campo" for="sector">Sector donde vives</label>
+        <select id="sector"></select>
+        <div class="fila">
+          <button id="detectar-sector" class="boton sec" type="button">Detectar mi sector</button>
+          <p id="sector-txt" class="ayuda" aria-live="polite"></p>
+        </div>
+        <label class="campo" for="edad">Edad de la persona con fiebre</label>
+        <select id="edad">
+          <option value="0-4">0 a 4 años</option><option value="5-14">5 a 14 años</option>
+          <option value="15-64" selected>15 a 64 años</option><option value="65+">65 años o más</option>
+        </select>
+        <label class="campo" for="dias">Días con fiebre</label>
+        <select id="dias">
+          <option value="1">1 día</option><option value="2">2 días</option><option value="3">3 días</option>
+          <option value="4-7">4 a 7 días</option><option value="8+">Más de 7 días</option>
+        </select>
+        <fieldset>
+          <legend>¿Tiene dolor de barriga fuerte, vómitos que no paran, sangrado, mucho sueño o confusión, o manos y pies fríos?</legend>
+          <div class="opciones">
+            <label><input type="radio" name="alarma" value="si"> Sí</label>
+            <label><input type="radio" name="alarma" value="no"> No</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>¿Ha consultado ya a un médico por esta fiebre?</legend>
+          <div class="opciones">
+            <label><input type="radio" name="consulto" value="si"> Sí</label>
+            <label><input type="radio" name="consulto" value="no"> No</label>
+          </div>
+        </fieldset>
+        <label class="campo" for="prueba">Prueba de dengue</label>
+        <select id="prueba">
+          <option value="no">No le han hecho prueba</option><option value="pos">Positiva a dengue</option>
+          <option value="neg">Negativa</option><option value="pend">Pendiente de resultado</option>
+        </select>
+        <label class="check"><input type="checkbox" id="consent"> <span>Acepto que estos datos se registren de forma anónima y se publiquen solo sumados por sector.</span></label>
+      </div>
+
+      <input type="text" id="website" class="trampa" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button id="enviar" class="boton primario" type="submit">Enviar reporte</button>
+      <p id="form-msg" role="status" aria-live="polite"></p>
+      <div id="urgente" class="urgente" hidden>Lo que describes puede ser un signo de alarma. Acude ahora mismo a un centro de salud o llama al <a href="tel:911">911</a>. No esperes a que baje la fiebre.</div>
+    </form>
+  </section>
+
+  <section class="alarma" id="alarma">
+    <h2>Signos de alarma del dengue</h2>
+    <p>Acude de inmediato a un centro de salud si la persona con fiebre tiene:</p>
+    <ul>
+      <li>Dolor de barriga fuerte y continuo</li>
+      <li>Vómitos que no paran</li>
+      <li>Sangrado de encías o nariz, o vómito o heces con sangre</li>
+      <li>Mucho sueño, confusión o irritabilidad</li>
+      <li>Manos y pies fríos, piel pálida o desmayo</li>
+    </ul>
+    <p><strong>El momento más peligroso suele llegar cuando la fiebre baja</strong>, entre el día 3 y el 7. No es señal de curación.</p>
+    <p>Bebe mucho líquido y reposa. No tomes aspirina, ibuprofeno ni otros antiinflamatorios. Para la fiebre, el medicamento indicado es el acetaminofén (paracetamol), en la dosis que indique un profesional de salud.</p>
+    <p class="tel">Emergencias: <a href="tel:911">911</a></p>
+  </section>
+
+  <section class="bloque">
+    <h2>Cómo funciona</h2>
+    <p>Cada criadero reportado se revisa antes de aparecer en el mapa y se marca como limpiado cuando se atiende. Los reportes de fiebre nunca se muestran uno a uno: solo publicamos el total de cada zona, y solo cuando hay <span id="kmin">5</span> o más en los últimos 7 días.</p>
+    <p>Una zona pasa a prioritaria cuando la fiebre reportada esta semana supera claramente lo habitual en esa misma zona. Es una señal para limpiar, fumigar y reforzar la atención, no un diagnóstico.</p>
+  </section>
+</main>
+
+<footer>
+  <p>Piloto de vigilancia participativa en el municipio de La Vega. No diagnostica ni sustituye la atención médica ni la vigilancia epidemiológica oficial.</p>
+  <p>No guardamos nombres, teléfonos ni ubicaciones de quienes reportan fiebre. Mapa base © colaboradores de OpenStreetMap.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ─── Configuración: rellenar tras desplegar el backend ─── */
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbzN6Vvmbbtwtub4qIGGDSVdkSw_7nZIqHodEGWU7HkjnQiXITj9cKYzXzF5uwKrzzeZkA/exec',          // URL /exec del despliegue de Apps Script. Vacío = modo demostración local.
+  BOT_USERNAME: 'AlertaDengueRDbot',     // Nombre del bot sin @. Vacío = oculta el botón de Telegram.
+  REFRESCO_MIN: 15,
+  CENTRO: [19.2221, -70.5296],
+};
+
+const NIVELES = {
+  tension:    { color: '#C0342B', op: 0.55, nombre: 'Zona prioritaria' },
+  vigilancia: { color: '#E3A21A', op: 0.50, nombre: 'En vigilancia' },
+  normal:     { color: '#CFE3D6', op: 0.45, nombre: 'Sin aumento de fiebre' },
+  sin_datos:  { color: '#E3E8ED', op: 0.35, nombre: 'Sin datos suficientes' },
+};
+const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATRIB = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const t0 = Date.now();
+let datos = null, capaS = null, capaC = null, mini = null, marcador = null;
+
+/* ─── Mapa principal ─── */
+const mapa = L.map('mapa', { scrollWheelZoom: false }).setView(CONFIG.CENTRO, 13);
+L.tileLayer(TILE, { maxZoom: 19, attribution: ATRIB }).addTo(mapa);
+
+/* ─── Datos de demostración (sin backend) ─── */
+function rng(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function datosDemo() {
+  const r = rng(42), lat0 = 19.2461, lon0 = -70.5536, d = 0.012, F = 'ABCD', features = [];
+  const nivelDe = { B2: ['tension', 18], C3: ['tension', 15], B3: ['vigilancia', 8] };
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const id = F[i] + (j + 1), n = lat0 - i * d, s = n - d, w = lon0 + j * d, e = w + d;
+    const [nivel, casos] = nivelDe[id] || ['normal', Math.floor(r() * 8)];
+    features.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
+      properties: { id, nombre: 'Celda demo ' + id, nivel, casos_7d: casos >= 5 ? casos : null, suprimido: casos < 5 } });
+  }
+  const cats = ['Neumáticos', 'Recipientes o envases', 'Tanques o tinacos destapados', 'Basura acumulada o vertedero', 'Aguas estancadas o cunetas'];
+  const criaderos = [];
+  for (let k = 0; k < 40; k++) {
+    const foco = k < 16 ? features[k % 2 ? 5 : 10] : features[Math.floor(r() * 16)];
+    const ring = foco.geometry.coordinates[0];
+    const lon = ring[0][0] + r() * (ring[1][0] - ring[0][0]), lat = ring[0][1] + r() * (ring[2][1] - ring[0][1]);
+    const fecha = new Date(Date.now() - r() * 40 * 864e5).toISOString().slice(0, 10);
+    criaderos.push({ lat, lon, categoria: cats[Math.floor(r() * cats.length)], estado: r() < 0.65 ? 'validado' : 'atendido', fecha });
+  }
+  const cuenta = n => features.filter(f => f.properties.nivel === n).length;
+  return { demo: true, actualizado: new Date().toISOString(), k_min: 5,
+    resumen: { zonas_tension: cuenta('tension'), zonas_vigilancia: cuenta('vigilancia'),
+      criaderos_confirmados: criaderos.filter(c => c.estado === 'validado').length,
+      criaderos_atendidos: criaderos.filter(c => c.estado === 'atendido').length },
+    sectores: { type: 'FeatureCollection', features }, criaderos };
+}
+
+/* ─── Carga y pintado ─── */
+async function cargar() {
+  try {
+    if (!CONFIG.API_URL) datos = datosDemo();
+    else { const r = await fetch(CONFIG.API_URL, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); datos = await r.json(); }
+    pintar();
+  } catch (e) {
+    $('#estado').textContent = 'No se pudieron cargar los datos. Se reintentará en unos minutos.';
+    if (!datos) { $('#titular').textContent = 'Mapa temporalmente no disponible'; $('#subtitular').textContent = 'Mientras tanto, puedes reportar criaderos y consultar los signos de alarma.'; }
+  }
+}
+
+function hace(iso) {
+  if (!iso) return 'sin actualizar';
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 2) return 'hace un momento';
+  if (m < 60) return 'hace ' + m + ' minutos';
+  const h = Math.round(m / 60); return h < 24 ? 'hace ' + h + (h === 1 ? ' hora' : ' horas') : new Date(iso).toLocaleDateString('es-DO');
+}
+const palabra = n => ['Ninguna', 'Una', 'Dos', 'Tres', 'Cuatro', 'Cinco'][n] || String(n);
+
+function pintar() {
+  const R = datos.resumen, est = $('#estado');
+  est.textContent = datos.demo ? 'Datos simulados' : 'Actualizado ' + hace(datos.actualizado);
+  est.classList.toggle('demo', !!datos.demo);
+  $('#aviso-demo').hidden = !datos.demo;
+  $('#kmin').textContent = datos.k_min || 5;
+
+  const t = R.zonas_tension, v = R.zonas_vigilancia;
+  const nombresT = datos.sectores.features.filter(f => f.properties.nivel === 'tension').map(f => f.properties.nombre);
+  if (t > 0) {
+    $('#titular').textContent = palabra(t) + (t === 1 ? ' zona de La Vega necesita' : ' zonas de La Vega necesitan') + ' prevención urgente esta semana.';
+    $('#subtitular').textContent = 'La fiebre reportada en ' + nombresT.join(' y ') + ' supera lo habitual. Si vives cerca, elimina el agua estancada y vigila los signos de alarma.';
+  } else if (v > 0) {
+    $('#titular').textContent = palabra(v) + (v === 1 ? ' zona de La Vega está' : ' zonas de La Vega están') + ' en vigilancia esta semana.';
+    $('#subtitular').textContent = 'La fiebre reportada empieza a subir. Es el momento de limpiar criaderos, antes de que haya un brote.';
+  } else {
+    $('#titular').textContent = 'Esta semana no hay zonas de La Vega con aumento de fiebre.';
+    $('#subtitular').textContent = 'La prevención funciona antes del brote: sigue eliminando el agua estancada cerca de tu casa.';
+  }
+  $('#c-tension').textContent = t; $('#c-vig').textContent = v;
+  $('#c-conf').textContent = R.criaderos_confirmados; $('#c-aten').textContent = R.criaderos_atendidos;
+
+  if (capaS) capaS.remove();
+  capaS = L.geoJSON(datos.sectores, {
+    style: f => { const n = NIVELES[f.properties.nivel] || NIVELES.sin_datos; return { color: '#fff', weight: 1.5, fillColor: n.color, fillOpacity: n.op }; },
+    onEachFeature: (f, l) => {
+      const p = f.properties, n = NIVELES[p.nivel] || NIVELES.sin_datos;
+      const casos = p.suprimido ? 'Menos de ' + (datos.k_min || 5) + ' reportes de fiebre en 7 días' : p.casos_7d + ' reportes de fiebre en 7 días';
+      l.bindPopup('<strong>' + esc(p.nombre) + '</strong><br>' + esc(n.nombre) + '<br>' + esc(casos));
+    },
+  }).addTo(mapa);
+
+  if (capaC) capaC.remove();
+  capaC = L.layerGroup(datos.criaderos.map(c => {
+    const limpio = c.estado === 'atendido';
+    return L.circleMarker([c.lat, c.lon], { radius: 6, weight: 2, color: limpio ? '#2E7D4F' : '#15212B', fillColor: limpio ? '#fff' : '#15212B', fillOpacity: 1 })
+      .bindPopup('<strong>' + esc(c.categoria) + '</strong><br>' + (limpio ? 'Ya limpiado' : 'Confirmado, pendiente de limpieza') + '<br>Reportado el ' + esc(c.fecha) +
+        (c.foto ? '<br><img src="' + esc(c.foto) + '" alt="Foto del criadero" style="max-width:200px;margin-top:6px;border-radius:4px">' : ''));
+  })).addTo(mapa);
+
+  if (!pintar.encuadrado && capaS.getLayers().length) { mapa.fitBounds(capaS.getBounds(), { padding: [12, 12] }); pintar.encuadrado = true; }
+
+  const sel = $('#sector'), previo = sel.value;
+  sel.innerHTML = datos.sectores.features.map(f => '<option value="' + esc(f.properties.id) + '">' + esc(f.properties.nombre) + '</option>').join('');
+  if (previo) sel.value = previo;
+}
+
+/* ─── Geometría ─── */
+function enPoligono(x, y, ring) { let d = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) d = !d; } return d; }
+function sectorDe(lat, lon) {
+  if (!datos) return null;
+  const f = datos.sectores.features.find(f => { const g = f.geometry; const ps = g.type === 'MultiPolygon' ? g.coordinates : [g.coordinates]; return ps.some(p => enPoligono(lon, lat, p[0])); });
+  return f ? f.properties : null;
+}
+function ubicar() {
+  return new Promise((ok, ko) => {
+    if (!navigator.geolocation) return ko(new Error('Tu navegador no permite obtener la ubicación.'));
+    navigator.geolocation.getCurrentPosition(p => ok([p.coords.latitude, p.coords.longitude]), () => ko(new Error('No se pudo obtener tu ubicación. Revisa el permiso del navegador.')), { enableHighAccuracy: true, timeout: 15000 });
+  });
+}
+
+/* ─── Formulario ─── */
+function tipo() { return document.querySelector('input[name=tipo]:checked').value; }
+function radio(n) { const r = document.querySelector('input[name=' + n + ']:checked'); return r ? r.value : ''; }
+function msg(t, error) { const m = $('#form-msg'); m.textContent = t; m.classList.toggle('error', !!error); }
+
+function marcar(lat, lon) {
+  if (marcador) marcador.setLatLng([lat, lon]);
+  else marcador = L.marker([lat, lon], { draggable: true, keyboard: true }).addTo(mini).on('dragend', () => describirPunto());
+  describirPunto();
+}
+function describirPunto() {
+  const ll = marcador.getLatLng(), s = sectorDe(ll.lat, ll.lng);
+  $('#ubic-txt').textContent = s ? 'Punto marcado en ' + s.nombre + '.' : 'Ese punto queda fuera de la zona del piloto.';
+}
+
+$('#abrir-form').addEventListener('click', () => {
+  const f = $('#formulario'), abrir = f.hidden;
+  f.hidden = !abrir; $('#abrir-form').setAttribute('aria-expanded', String(abrir));
+  if (abrir && !mini) {
+    mini = L.map('mini-mapa').setView(CONFIG.CENTRO, 14);
+    L.tileLayer(TILE, { maxZoom: 19, attribution: ATRIB }).addTo(mini);
+    mini.on('click', e => marcar(e.latlng.lat, e.latlng.lng));
+  }
+  if (abrir) setTimeout(() => mini.invalidateSize(), 50);
+});
+
+document.querySelectorAll('input[name=tipo]').forEach(r => r.addEventListener('change', () => {
+  const c = tipo() === 'criadero';
+  $('#f-criadero').hidden = !c; $('#f-fiebre').hidden = c; msg(''); $('#urgente').hidden = true;
+  if (c && mini) setTimeout(() => mini.invalidateSize(), 50);
+}));
+
+$('#mi-ubicacion').addEventListener('click', async () => {
+  $('#ubic-txt').textContent = 'Buscando tu ubicación…';
+  try { const [la, lo] = await ubicar(); marcar(la, lo); mini.setView([la, lo], 17); }
+  catch (e) { $('#ubic-txt').textContent = e.message; }
+});
+
+$('#detectar-sector').addEventListener('click', async () => {
+  $('#sector-txt').textContent = 'Buscando tu sector…';
+  try {
+    const [la, lo] = await ubicar(), s = sectorDe(la, lo);   // la coordenada no se envía
+    if (s) { $('#sector').value = s.id; $('#sector-txt').textContent = 'Sector detectado: ' + s.nombre + '.'; }
+    else $('#sector-txt').textContent = 'Tu ubicación queda fuera de la zona del piloto. Elige el sector en la lista.';
+  } catch (e) { $('#sector-txt').textContent = e.message; }
+});
+
+$('#formulario').addEventListener('submit', async ev => {
+  ev.preventDefault(); msg(''); $('#urgente').hidden = true;
+  const payload = { canal: 'web', tipo: tipo(), t0, website: $('#website').value };
+
+  if (payload.tipo === 'criadero') {
+    if (!marcador) return msg('Marca el lugar en el mapa o usa tu ubicación.', true);
+    const ll = marcador.getLatLng();
+    if (!sectorDe(ll.lat, ll.lng)) return msg('Ese punto queda fuera de la zona del piloto.', true);
+    Object.assign(payload, { lat: ll.lat, lon: ll.lng, categoria: $('#categoria').value });
+  } else {
+    const alarma = radio('alarma'), consulto = radio('consulto');
+    if (!alarma || !consulto) return msg('Responde a las preguntas sobre signos de alarma y consulta médica.', true);
+    if (!$('#consent').checked) return msg('Para enviar, acepta el registro anónimo.', true);
+    Object.assign(payload, { sector_id: $('#sector').value, edad: $('#edad').value, dias: $('#dias').value, alarma, consulto, prueba: $('#prueba').value });
+  }
+
+  const b = $('#enviar'); b.disabled = true; b.textContent = 'Enviando…';
+  let res;
+  try {
+    if (!CONFIG.API_URL) { await new Promise(r => setTimeout(r, 500)); res = { ok: true, demo: true }; }
+    else {
+      const r = await fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+      res = await r.json();
+    }
+  } catch (e) { res = { ok: false, error: 'No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.' }; }
+  b.disabled = false; b.textContent = 'Enviar reporte';
+
+  if (!res.ok) return msg(res.error || 'No se pudo enviar el reporte.', true);
+  const pre = res.demo ? 'Modo demostración: el reporte no se ha guardado. ' : '';
+  if (payload.tipo === 'criadero') {
+    msg(pre + (res.duplicado ? 'Ya había un reporte en ese punto. Gracias por confirmarlo.' : 'Reporte enviado. Aparecerá en el mapa cuando se confirme.'));
+  } else {
+    msg(pre + 'Reporte enviado de forma anónima. Gracias.');
+    if (payload.alarma === 'si') { $('#urgente').hidden = false; $('#urgente').scrollIntoView({ block: 'center' }); }
+  }
+});
+
+/* ─── Arranque ─── */
+if (CONFIG.BOT_USERNAME) { const t = $('#btn-telegram'); t.href = 'https://t.me/' + encodeURIComponent(CONFIG.BOT_USERNAME); t.hidden = false; }
+cargar();
+setInterval(cargar, CONFIG.REFRESCO_MIN * 60000);
+</script>
+</body>
+</html>
