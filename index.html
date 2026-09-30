@@ -569,8 +569,9 @@ function pintar() {
   chips.replaceChildren(...destacadas.map(f => {
     const p = f.properties, li = document.createElement('li'), b = document.createElement('button');
     b.type = 'button'; b.className = 'chip';
-    b.innerHTML = '<span class="sw" style="background:' + NIVELES[p.nivel].color + '" aria-hidden="true"></span>' + esc(p.nombre) +
-      '<span class="sr"> (' + esc(NIVELES[p.nivel].nombre) + '). Ver en el mapa</span>';
+    b.innerHTML = '<span class="sw" style="background:' + NIVELES[p.nivel].color + '" aria-hidden="true"></span>' + esc(p.nombre);
+    b.setAttribute('aria-label', p.nombre + ', ' + NIVELES[p.nivel].nombre.toLowerCase() + '. Ver en el mapa');
+    b.title = NIVELES[p.nivel].nombre;
     b.addEventListener('click', () => irAZona(p.id));
     li.append(b); return li;
   }));
