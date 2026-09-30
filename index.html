@@ -58,7 +58,7 @@
   @media (max-width: 959px) {
     .portada { gap: 0; }
     .hero-texto { display: contents; }
-    .portada h1 { order: 1; } .portada .sub { order: 2; } .chips { order: 3; } .aviso-demo { order: 4; }
+    .portada h1 { order: 1; } .portada .sub { order: 2; } .zonas { order: 3; } .aviso-demo { order: 4; }
     .hero-mapa { order: 5; margin-top: 1.25rem; } .acciones { order: 6; } .mi-zona { order: 7; }
     #mapa { height: clamp(320px, 52vh, 460px); }
     h1 { max-width: none; }
@@ -67,11 +67,19 @@
   .marca, .estado { white-space: nowrap; }
   h1 { font-size: clamp(2.1rem, 4.4vw, 3.5rem); line-height: 1.03; font-weight: 800; font-variation-settings: "opsz" 96; max-width: 16ch; text-wrap: balance; }
   .sub { margin: 1rem 0 0; font-size: 1.1875rem; color: var(--gris); max-width: 34rem; }
-  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.1rem 0 0; padding: 0; list-style: none; }
-  .chip { font: inherit; font-size: 0.9375rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer;
-          padding: 0.45rem 0.9rem 0.45rem 0.7rem; border-radius: 999px; border: 1.5px solid var(--linea); background: var(--papel); color: var(--tinta); }
-  .chip:hover { border-color: var(--tinta); }
-  .chip .sw { width: 0.7rem; height: 0.7rem; border-radius: 50%; }
+  .zonas { list-style: none; margin: 1.5rem 0 0; padding: 0; border-top: 1px solid var(--linea); max-width: 34rem; }
+  .zonas li { border-bottom: 1px solid var(--linea); }
+  .zona-fila { font: inherit; color: var(--tinta); width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.85rem;
+               padding: 0.8rem 0.25rem; background: none; border: 0; text-align: left; cursor: pointer; }
+  .zona-fila:hover { background: var(--niebla); }
+  .zona-fila:hover .zona-ir { color: var(--azul); }
+  .nivel { font-size: 0.8125rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 6px; white-space: nowrap; min-width: 7.2em; text-align: center; }
+  .nivel.tension { background: var(--alerta); color: #fff; }
+  .nivel.vigilancia { background: var(--vigil); color: var(--tinta); }
+  .zona-nombre { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .zona-casos { font-size: 0.9375rem; color: var(--gris); white-space: nowrap; }
+  .zona-ir { width: 1.15rem; height: 1.15rem; color: var(--gris); }
+  @media (max-width: 420px) { .zona-fila { grid-template-columns: auto minmax(0, 1fr) auto; } .zona-casos { display: none; } }
   .acciones { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
   .boton { font: inherit; font-weight: 700; font-size: 1.0625rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
            min-height: 3.1rem; padding: 0.75rem 1.3rem; border-radius: var(--r-medio); cursor: pointer; text-decoration: none;
@@ -223,7 +231,7 @@
     <div class="hero-texto">
       <h1 id="titular">Cargando la situación de esta semana…</h1>
       <p id="subtitular" class="sub"></p>
-      <ul id="chips" class="chips" aria-label="Zonas destacadas. Toca una para verla en el mapa" hidden></ul>
+      <ul id="chips" class="zonas" aria-label="Zonas destacadas esta semana. Toca una para verla en el mapa" hidden></ul>
       <div class="acciones">
         <button class="boton primario" type="button" data-tipo="criadero">Reportar un criadero</button>
         <button class="boton" type="button" data-tipo="fiebre">Avisar de fiebre en casa</button>
@@ -566,12 +574,15 @@ function pintar() {
   // Zonas destacadas: botones que llevan al mapa
   const destacadas = feats.filter(f => f.properties.nivel === 'tension').concat(feats.filter(f => f.properties.nivel === 'vigilancia'));
   const chips = $('#chips');
+  const ETIQUETA = { tension: 'Prioritaria', vigilancia: 'Vigilancia' };
+  const PIN = '<svg class="zona-ir" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a7 7 0 0 0-7 7c0 5.2 7 12 7 12s7-6.8 7-12a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z" fill="currentColor"/></svg>';
   chips.replaceChildren(...destacadas.map(f => {
     const p = f.properties, li = document.createElement('li'), b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip';
-    b.innerHTML = '<span class="sw" style="background:' + NIVELES[p.nivel].color + '" aria-hidden="true"></span>' + esc(p.nombre);
-    b.setAttribute('aria-label', p.nombre + ', ' + NIVELES[p.nivel].nombre.toLowerCase() + '. Ver en el mapa');
-    b.title = NIVELES[p.nivel].nombre;
+    const casos = p.casos_7d ? p.casos_7d + ' avisos en 7 días' : '';
+    b.type = 'button'; b.className = 'zona-fila';
+    b.innerHTML = '<span class="nivel ' + p.nivel + '">' + ETIQUETA[p.nivel] + '</span><span class="zona-nombre">' + esc(p.nombre) + '</span>' +
+      '<span class="zona-casos">' + esc(casos) + '</span>' + PIN;
+    b.setAttribute('aria-label', p.nombre + ', ' + NIVELES[p.nivel].nombre.toLowerCase() + (casos ? ', ' + casos : '') + '. Ver en el mapa');
     b.addEventListener('click', () => irAZona(p.id));
     li.append(b); return li;
   }));
