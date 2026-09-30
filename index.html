@@ -3,274 +3,457 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Alerta Dengue La Vega</title>
-<meta name="description" content="Mapa ciudadano de criaderos de mosquitos y zonas de prevención de dengue en La Vega, República Dominicana.">
+<meta name="theme-color" content="#0F1B2D">
+<title>Alerta Dengue La Vega · Mapa ciudadano de prevención</title>
+<meta name="description" content="Consulta cómo está tu zona esta semana, reporta criaderos de mosquitos y avisa de fiebre en casa de forma anónima. Piloto ciudadano en La Vega, República Dominicana.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
+  /* ─── Tokens ─── */
   :root {
-    --paper: #FFFFFF; --ink: #15212B; --muted: #56636F; --rain: #1E5A94; --surface: #EEF3F7; --line: #D5DDE4;
-    --alert: #C0342B; --warn: #E3A21A; --calm: #CFE3D6; --empty: #E3E8ED; --clean: #2E7D4F;
-    font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    color: var(--ink); background: var(--paper);
+    --tinta: #0F1B2D; --gris: #5A6675; --papel: #FFFFFF; --niebla: #F1F4F8; --linea: #DCE2EA;
+    --azul: #1F4FE0; --azul-hondo: #173BB0; --azul-suave: #E6ECFD;
+    --alerta: #D0342C; --vigil: #EBA10C; --calma: #BFE0CB; --sin: #E4E9EF; --limpio: #1E8449;
+    --titular: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --texto: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --r-grande: 18px; --r-medio: 12px; --r-chico: 8px;
+    --margen: clamp(1rem, 4vw, 2.75rem);
+    color-scheme: light;
+    font-family: var(--texto); color: var(--tinta); background: var(--papel);
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+    scroll-behavior: smooth;
   }
+  html { scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 5rem); }
   *, *::before, *::after { box-sizing: inherit; }
-  body { margin: 0; font-size: 1.0625rem; line-height: 1.55; }
-  a { color: var(--rain); }
-  :focus-visible { outline: 3px solid var(--rain); outline-offset: 2px; }
+  body { margin: 0; font-size: 1.0625rem; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  img, svg { max-width: 100%; }
+  a { color: var(--azul); text-underline-offset: 0.18em; }
+  :focus-visible { outline: 3px solid var(--azul); outline-offset: 3px; border-radius: 4px; }
+  h1, h2, h3 { font-family: var(--titular); font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap;
-         padding: 1rem clamp(1rem, 4vw, 2.5rem); border-bottom: 1px solid var(--line); }
-  .marca { font-weight: 700; font-size: 1.125rem; color: var(--ink); text-decoration: none; }
-  .estado { margin: 0; color: var(--muted); font-size: 0.9375rem; }
-  .estado.demo { color: var(--alert); font-weight: 700; }
+  /* ─── Cabecera ─── */
+  .top { position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+         padding: 0.8rem var(--margen); padding-top: calc(0.8rem + env(safe-area-inset-top, 0px)); margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+         background: rgba(255,255,255,0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--linea); }
+  .marca { display: flex; align-items: center; gap: 0.55rem; color: var(--tinta); text-decoration: none; font-family: var(--titular); font-weight: 800; font-size: 1.125rem; letter-spacing: -0.02em; }
+  .marca svg { width: 1.7rem; height: 1.7rem; flex: none; }
+  .marca small { font-family: var(--texto); font-weight: 400; font-size: 0.9375rem; color: var(--gris); letter-spacing: 0; margin-left: 0.35rem; }
+  .estado { display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 0.9375rem; color: var(--gris); text-align: right; }
+  .punto { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--linea); flex: none; position: relative; }
+  .estado.vivo .punto { background: var(--limpio); }
+  .estado.vivo .punto::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--limpio); animation: onda 2.4s ease-out infinite; }
+  .estado.demo { color: var(--alerta); font-weight: 700; }
+  .estado.demo .punto { background: var(--alerta); }
+  @keyframes onda { from { transform: scale(0.6); opacity: 0.9; } to { transform: scale(1.8); opacity: 0; } }
 
-  main { max-width: 1120px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
-  .situacion { padding: clamp(1.75rem, 5vw, 3.25rem) 0 1.25rem; max-width: 46rem; }
-  h1 { font-size: clamp(2rem, 6vw, 3.25rem); line-height: 1.08; margin: 0 0 0.75rem; letter-spacing: -0.01em; }
-  .sub { margin: 0; color: var(--muted); font-size: 1.125rem; max-width: 40rem; }
-  .aviso-demo { margin-top: 1rem; padding: 0.625rem 0.875rem; border-left: 4px solid var(--alert); background: #FBEDEC; font-size: 0.9375rem; }
+  /* ─── Portada: situación + mapa ─── */
+  .portada { display: grid; gap: clamp(1.5rem, 3vw, 2.75rem); padding: clamp(1.5rem, 4vw, 3rem) var(--margen) 0; max-width: 1320px; margin: 0 auto; }
+  @media (min-width: 960px) { .portada { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; } .hero-texto { position: sticky; top: 6rem; } }
+  /* En móvil el mapa sube justo después del titular y las zonas destacadas */
+  @media (max-width: 959px) {
+    .portada { gap: 0; }
+    .hero-texto { display: contents; }
+    .portada h1 { order: 1; } .portada .sub { order: 2; } .chips { order: 3; } .aviso-demo { order: 4; }
+    .hero-mapa { order: 5; margin-top: 1.25rem; } .acciones { order: 6; } .mi-zona { order: 7; }
+    #mapa { height: clamp(320px, 52vh, 460px); }
+    h1 { max-width: none; }
+  }
+  @media (max-width: 480px) { .marca small { display: none; } .estado { font-size: 0.875rem; } }
+  .marca, .estado { white-space: nowrap; }
+  h1 { font-size: clamp(2.1rem, 4.4vw, 3.5rem); line-height: 1.03; font-weight: 800; font-variation-settings: "opsz" 96; max-width: 16ch; text-wrap: balance; }
+  .sub { margin: 1rem 0 0; font-size: 1.1875rem; color: var(--gris); max-width: 34rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.1rem 0 0; padding: 0; list-style: none; }
+  .chip { font: inherit; font-size: 0.9375rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer;
+          padding: 0.45rem 0.9rem 0.45rem 0.7rem; border-radius: 999px; border: 1.5px solid var(--linea); background: var(--papel); color: var(--tinta); }
+  .chip:hover { border-color: var(--tinta); }
+  .chip .sw { width: 0.7rem; height: 0.7rem; border-radius: 50%; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
+  .boton { font: inherit; font-weight: 700; font-size: 1.0625rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+           min-height: 3.1rem; padding: 0.75rem 1.3rem; border-radius: var(--r-medio); cursor: pointer; text-decoration: none;
+           border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta); transition: background-color .15s, transform .15s; }
+  .boton:hover { background: var(--niebla); }
+  .boton:active { transform: translateY(1px); }
+  .boton.primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .boton.primario:hover { background: var(--azul-hondo); border-color: var(--azul-hondo); }
+  .boton:disabled { opacity: 0.6; cursor: progress; }
+  .boton.chico { min-height: 2.6rem; font-size: 0.9875rem; padding: 0.5rem 1rem; border-width: 1.5px; border-color: var(--linea); }
+  .mi-zona { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--linea); display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; }
+  .enlace { font: inherit; font-weight: 700; color: var(--azul); background: none; border: 0; padding: 0.25rem 0; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; }
+  .enlace svg { width: 1.15rem; height: 1.15rem; }
+  .enlace:hover { text-decoration: underline; text-underline-offset: 0.18em; }
+  .nota { margin: 0; font-size: 0.9375rem; color: var(--gris); }
+  .aviso-demo { margin: 1.25rem 0 0; padding: 0.75rem 1rem; border-radius: var(--r-chico); background: #FCECEB; color: #8E1F19; font-size: 0.9375rem; font-weight: 700; }
 
-  #mapa { height: clamp(360px, 62vh, 620px); border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
-  .leyenda { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0.75rem 0 0; padding: 0; list-style: none; font-size: 0.9375rem; color: var(--muted); }
-  .leyenda li { display: flex; align-items: center; gap: 0.45rem; }
-  .sw { width: 1rem; height: 1rem; border-radius: 3px; flex: none; }
-  .pt { width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; border: 2px solid var(--ink); }
+  .hero-mapa { min-width: 0; }
+  #mapa { height: clamp(380px, 68vh, 680px); border-radius: var(--r-grande); background: var(--niebla); overflow: hidden; box-shadow: 0 0 0 1px var(--linea); }
+  .leyenda { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.35rem 1.5rem; margin: 1rem 0 0; padding: 0; list-style: none; font-size: 0.9375rem; color: var(--gris); }
+  .leyenda li { display: flex; align-items: center; gap: 0.55rem; }
+  .leyenda b { font-family: var(--titular); font-size: 1.25rem; color: var(--tinta); min-width: 1.4ch; text-align: right; font-variant-numeric: tabular-nums; }
+  .sw { width: 0.95rem; height: 0.95rem; border-radius: 4px; flex: none; display: inline-block; }
+  .sw.tension { background: var(--alerta); } .sw.vigil { background: var(--vigil); } .sw.calma { background: var(--calma); } .sw.sin { background: var(--sin); box-shadow: inset 0 0 0 1px var(--linea); }
+  .sw.cri { border-radius: 50%; background: var(--tinta); } .sw.cri-ok { border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2.5px var(--limpio); }
 
-  .cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1.5rem; margin: 2rem 0 0; padding: 1.5rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .cifras div { margin: 0; }
-  .cifras dt { color: var(--muted); font-size: 0.9375rem; }
-  .cifras dd { margin: 0.15rem 0 0; font-size: 2.25rem; font-weight: 700; line-height: 1.1; }
+  /* Zonas del mapa: entrada escalonada y latido en las prioritarias */
+  .zona-entra { animation: aparecer .7s ease-out both; }
+  .zona-tension { animation: latido 2.6s ease-in-out infinite; }
+  .zona-entra.zona-tension { animation: aparecer .7s ease-out both, latido 2.6s ease-in-out .7s infinite; }
+  @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes latido { 0%, 100% { stroke-opacity: 1; stroke-width: 2.5px; } 50% { stroke-opacity: 0.35; stroke-width: 7px; } }
+  .leaflet-container { font-family: var(--texto); }
+  .leaflet-popup-content-wrapper { border-radius: var(--r-medio); box-shadow: 0 6px 24px rgba(15,27,45,.18); }
+  .leaflet-popup-content { font-size: 0.9375rem; line-height: 1.5; margin: 0.85rem 1rem; }
+  .leaflet-popup-content strong { font-family: var(--titular); font-size: 1.0625rem; }
+  .leaflet-bar { border: 0 !important; box-shadow: 0 2px 10px rgba(15,27,45,.15) !important; border-radius: var(--r-chico) !important; overflow: hidden; }
+  .leaflet-bar a { color: var(--tinta) !important; }
 
-  section.bloque { padding: 2.75rem 0 0; max-width: 46rem; }
-  h2 { font-size: 1.625rem; line-height: 1.2; margin: 0 0 0.75rem; }
-  .canales { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
-  .boton { font: inherit; font-weight: 700; font-size: 1rem; padding: 0.8rem 1.2rem; border-radius: 6px; cursor: pointer;
-           border: 2px solid var(--rain); background: var(--paper); color: var(--rain); text-decoration: none; display: inline-block; }
-  .boton.primario { background: var(--rain); color: #fff; }
-  .boton:disabled { opacity: 0.55; cursor: progress; }
-  .boton.sec { border-color: var(--line); color: var(--ink); font-weight: 400; padding: 0.55rem 0.9rem; }
+  /* ─── Secciones ─── */
+  main { display: block; }
+  .seccion { max-width: 1320px; margin: 0 auto; padding: clamp(3.5rem, 8vw, 6rem) var(--margen) 0; }
+  .seccion > h2, .cabeza h2 { font-size: clamp(1.75rem, 3.4vw, 2.5rem); line-height: 1.08; max-width: 20ch; text-wrap: balance; }
+  .intro { margin: 0.9rem 0 0; font-size: 1.125rem; color: var(--gris); max-width: 40rem; }
 
-  form { margin-top: 1.5rem; padding: 1.25rem; background: var(--surface); border-radius: 6px; }
-  fieldset { border: 0; padding: 0; margin: 0 0 1.25rem; }
-  legend, label.campo { display: block; font-weight: 700; margin: 0 0 0.4rem; }
-  .opciones { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
-  .opciones label { display: flex; align-items: center; gap: 0.4rem; }
-  select { font: inherit; width: 100%; padding: 0.65rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; margin-bottom: 1.1rem; color: var(--ink); }
-  input[type=radio], input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--rain); }
-  .ayuda { color: var(--muted); font-size: 0.9375rem; margin: 0 0 0.75rem; }
-  #mini-mapa { height: 260px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 0.75rem; }
-  .fila { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.1rem; }
+  /* Reportar */
+  .reportar { display: grid; gap: 2rem; }
+  @media (min-width: 960px) { .reportar { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); align-items: start; } .cabeza { position: sticky; top: 6rem; } }
+  .telegram { margin-top: 1.5rem; display: flex; gap: 0.85rem; align-items: center; padding: 1rem 1.1rem; border-radius: var(--r-medio); background: var(--niebla); text-decoration: none; color: var(--tinta); max-width: 26rem; }
+  .telegram svg { width: 2.2rem; height: 2.2rem; flex: none; }
+  .telegram span { display: block; font-size: 0.9375rem; color: var(--gris); }
+  .telegram strong { display: block; }
+  .telegram:hover { background: var(--azul-suave); }
+
+  form { background: var(--niebla); border-radius: var(--r-grande); padding: clamp(1.1rem, 3vw, 2rem); }
+  fieldset { border: 0; padding: 0; margin: 0 0 1.5rem; min-width: 0; }
+  legend, .campo { display: block; font-weight: 700; margin: 0 0 0.5rem; padding: 0; }
+  .eleccion { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
+  .opcion { position: relative; display: block; padding: 1rem 1.1rem 1rem 3rem; background: var(--papel); border: 2px solid transparent; border-radius: var(--r-medio); cursor: pointer; transition: border-color .15s; }
+  .opcion input { position: absolute; left: 1.05rem; top: 1.2rem; }
+  .opcion strong { display: block; font-family: var(--titular); font-size: 1.1875rem; letter-spacing: -0.01em; }
+  .opcion span { display: block; font-size: 0.9375rem; color: var(--gris); margin-top: 0.15rem; }
+  .opcion:hover { border-color: var(--linea); }
+  .opcion:has(input:checked) { border-color: var(--azul); box-shadow: 0 0 0 4px var(--azul-suave); }
+  .panel-form { background: var(--papel); border-radius: var(--r-medio); padding: clamp(1rem, 2.5vw, 1.5rem); }
+  .opciones { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+  .opciones label { display: flex; align-items: center; gap: 0.45rem; }
+  select { font: inherit; width: 100%; min-height: 3rem; padding: 0.65rem 0.8rem; border: 1.5px solid var(--linea); border-radius: var(--r-chico); background: #fff; color: var(--tinta); margin-bottom: 1.35rem; }
+  select:focus-visible { border-color: var(--azul); }
+  input[type=radio], input[type=checkbox] { width: 1.2rem; height: 1.2rem; accent-color: var(--azul); margin: 0; }
+  .ayuda { color: var(--gris); font-size: 0.9375rem; margin: 0 0 0.75rem; }
+  #mini-mapa { height: 280px; border-radius: var(--r-medio); margin-bottom: 0.85rem; box-shadow: 0 0 0 1px var(--linea); background: var(--niebla); }
+  .fila { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.35rem; }
   .fila .ayuda { margin: 0; }
-  .check { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0 0 1.25rem; }
-  .check input { margin-top: 0.2rem; flex: none; }
+  .check { display: flex; gap: 0.65rem; align-items: flex-start; margin: 0.25rem 0 0; }
+  .check input { margin-top: 0.25rem; flex: none; }
   .trampa { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
-  #form-msg { margin: 1rem 0 0; font-weight: 700; }
-  #form-msg.error { color: var(--alert); }
-  .urgente { margin-top: 1rem; padding: 1rem; background: var(--alert); color: #fff; border-radius: 6px; font-weight: 700; }
+  .envio { margin-top: 1.5rem; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+  #form-msg { margin: 0; font-weight: 700; }
+  #form-msg.error { color: var(--alerta); }
+  .urgente { margin-top: 1.25rem; padding: 1.1rem 1.2rem; background: var(--alerta); color: #fff; border-radius: var(--r-medio); font-weight: 700; font-size: 1.0625rem; }
   .urgente a { color: #fff; }
-  .consejo { margin-top: 1rem; padding: 1rem 1.1rem; border-left: 4px solid var(--rain); background: var(--paper); border-radius: 0 6px 6px 0; }
+  .consejo { margin-top: 1.25rem; padding: 1.1rem 1.2rem 1.1rem 1.4rem; background: var(--papel); border-radius: var(--r-medio); box-shadow: inset 4px 0 0 var(--azul); }
   .consejo p { margin: 0 0 0.6rem; }
   .consejo p:last-child { margin-bottom: 0; }
+  .aparece { animation: subir .35s ease-out both; }
+  @keyframes subir { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-  .alarma { margin-top: 2.75rem; padding: 1.5rem 1.5rem 1.25rem; border-left: 6px solid var(--alert); background: #FBEDEC; max-width: 46rem; }
-  .alarma ul { padding-left: 1.2rem; margin: 0.5rem 0 1rem; }
-  .alarma li { margin-bottom: 0.3rem; }
-  .alarma p { margin: 0 0 0.75rem; }
-  .tel { font-weight: 700; font-size: 1.25rem; }
+  /* Signos de alarma */
+  .alarma-banda { margin-top: clamp(3.5rem, 8vw, 6rem); background: var(--tinta); color: #fff; }
+  .alarma { max-width: 1320px; margin: 0 auto; padding: clamp(2.75rem, 6vw, 4.5rem) var(--margen); display: grid; gap: 2rem; }
+  @media (min-width: 960px) { .alarma { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+  .alarma h2 { font-size: clamp(1.9rem, 4vw, 2.9rem); line-height: 1.05; max-width: 14ch; }
+  .alarma .intro { color: #C6D0DC; }
+  .llamar { margin-top: 1.75rem; display: inline-flex; align-items: center; gap: 0.75rem; padding: 0.9rem 1.4rem; border-radius: var(--r-medio); background: var(--alerta); color: #fff; font-weight: 700; font-size: 1.25rem; text-decoration: none; }
+  .llamar svg { width: 1.4rem; height: 1.4rem; }
+  .llamar:hover { background: #B32A23; }
+  .signos { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid rgba(255,255,255,.14); }
+  .signos li { padding: 0.8rem 0 0.8rem 1.9rem; border-bottom: 1px solid rgba(255,255,255,.14); position: relative; font-size: 1.0625rem; }
+  .signos li::before { content: ""; position: absolute; left: 0.2rem; top: 1.25rem; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--alerta); }
+  .cuidados { display: grid; gap: 1.25rem; margin-top: 2rem; }
+  @media (min-width: 700px) { .cuidados { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .cuidados h3 { font-size: 1.1875rem; margin-bottom: 0.35rem; letter-spacing: -0.01em; }
+  .cuidados p { margin: 0; color: #D5DDE6; font-size: 1rem; }
+  .cuidados .destacado { grid-column: 1 / -1; padding: 1rem 1.1rem; border-radius: var(--r-medio); background: rgba(255,255,255,.07); }
+  .cuidados .destacado p { color: #fff; }
 
-  footer { max-width: 1120px; margin: 3.5rem auto 0; padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 2.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9375rem; }
-  footer p { max-width: 46rem; margin: 0 0 0.6rem; }
+  /* Cómo funciona */
+  .pasos { list-style: none; margin: 2.25rem 0 0; padding: 0; display: grid; gap: 1.75rem; counter-reset: paso; }
+  @media (min-width: 800px) { .pasos { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.5rem; } }
+  .pasos li { counter-increment: paso; padding-top: 1rem; border-top: 3px solid var(--tinta); }
+  .pasos li::before { content: counter(paso); display: block; font-family: var(--titular); font-weight: 800; font-size: 2.5rem; line-height: 1; color: var(--azul); margin-bottom: 0.6rem; }
+  .pasos h3 { font-size: 1.3125rem; margin-bottom: 0.35rem; letter-spacing: -0.01em; }
+  .pasos p { margin: 0; color: var(--gris); }
+  .privacidad { margin-top: 3rem; display: grid; gap: 1.5rem; padding: clamp(1.25rem, 3vw, 2rem); border-radius: var(--r-grande); background: var(--niebla); }
+  @media (min-width: 800px) { .privacidad { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem; } }
+  .privacidad h3 { font-size: 1.3125rem; margin-bottom: 0.4rem; letter-spacing: -0.01em; }
+  .privacidad p { margin: 0; color: var(--gris); }
 
-  .leaflet-popup-content { font-family: inherit; font-size: 0.9375rem; line-height: 1.45; }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+  footer { max-width: 1320px; margin: clamp(3.5rem, 8vw, 6rem) auto 0; padding: 1.75rem var(--margen) 2.5rem; border-top: 1px solid var(--linea); color: var(--gris); font-size: 0.9375rem; }
+  footer p { max-width: 50rem; margin: 0 0 0.6rem; }
+
+  /* Barra fija en móvil */
+  .barra-movil { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; display: flex; gap: 0.6rem; padding: 0.7rem var(--margen); padding-bottom: calc(0.7rem + env(safe-area-inset-bottom, 0px));
+                 background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--linea); transition: transform .25s ease; }
+  .barra-movil .boton { flex: 1; min-height: 2.9rem; font-size: 1rem; padding: 0.5rem 0.75rem; }
+  .barra-movil.oculta { transform: translateY(110%); }
+  @media (max-width: 759px) { body { padding-bottom: 5rem; } }
+  @media (min-width: 760px) { .barra-movil { display: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
 <header class="top">
-  <a class="marca" href="./">Alerta Dengue La Vega</a>
-  <p id="estado" class="estado" aria-live="polite">Cargando datos…</p>
+  <a class="marca" href="./" aria-label="Alerta Dengue La Vega, inicio">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5c5.2 7 9.5 12.3 9.5 17.3a9.5 9.5 0 0 1-19 0C6.5 14.8 10.8 9.5 16 2.5Z" fill="#1F4FE0"/><path d="M11.8 20.2l3 3 5.8-6.4" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Alerta Dengue<small>La Vega</small></span>
+  </a>
+  <p id="estado" class="estado" aria-live="polite"><span class="punto" aria-hidden="true"></span><span id="estado-txt">Cargando datos…</span></p>
 </header>
 
 <main>
-  <section class="situacion">
-    <h1 id="titular">Cargando la situación de esta semana…</h1>
-    <p id="subtitular" class="sub"></p>
-    <p id="aviso-demo" class="aviso-demo" hidden>Datos simulados para demostración. No representan la situación real de La Vega.</p>
-  </section>
-
-  <div id="mapa" role="region" aria-label="Mapa de zonas de prevención y criaderos"></div>
-  <ul class="leyenda" aria-label="Leyenda del mapa">
-    <li><span class="sw" style="background:var(--alert)"></span>Zona prioritaria</li>
-    <li><span class="sw" style="background:var(--warn)"></span>En vigilancia</li>
-    <li><span class="sw" style="background:var(--calm)"></span>Sin aumento de fiebre</li>
-    <li><span class="sw" style="background:var(--empty)"></span>Sin datos suficientes</li>
-    <li><span class="pt" style="background:var(--ink)"></span>Criadero confirmado</li>
-    <li><span class="pt" style="background:#fff;border-color:var(--clean)"></span>Criadero ya limpiado</li>
-  </ul>
-
-  <dl class="cifras">
-    <div><dt>Zonas prioritarias</dt><dd id="c-tension">–</dd></div>
-    <div><dt>Zonas en vigilancia</dt><dd id="c-vig">–</dd></div>
-    <div><dt>Criaderos por limpiar</dt><dd id="c-conf">–</dd></div>
-    <div><dt>Criaderos limpiados</dt><dd id="c-aten">–</dd></div>
-  </dl>
-
-  <section class="bloque" id="reportar">
-    <h2>Reporta lo que ves</h2>
-    <p>Un neumático con agua, un tanque destapado o basura acumulada bastan para criar mosquitos. Si ves uno, repórtalo. Si alguien en tu casa tiene fiebre, avísanos de forma anónima: así sabemos qué zonas necesitan ayuda antes de que sea tarde.</p>
-    <div class="canales">
-      <a id="btn-telegram" class="boton primario" href="#" hidden>Reportar por Telegram</a>
-      <button id="abrir-form" class="boton" type="button" aria-expanded="false" aria-controls="formulario">Reportar desde esta página</button>
+  <!-- ─── Situación de la semana ─── -->
+  <section class="portada" aria-labelledby="titular">
+    <div class="hero-texto">
+      <h1 id="titular">Cargando la situación de esta semana…</h1>
+      <p id="subtitular" class="sub"></p>
+      <ul id="chips" class="chips" aria-label="Zonas destacadas. Toca una para verla en el mapa" hidden></ul>
+      <div class="acciones">
+        <button class="boton primario" type="button" data-tipo="criadero">Reportar un criadero</button>
+        <button class="boton" type="button" data-tipo="fiebre">Avisar de fiebre en casa</button>
+      </div>
+      <div class="mi-zona">
+        <button id="mi-zona" class="enlace" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Ver cómo está mi zona
+        </button>
+        <p id="zona-txt" class="nota" aria-live="polite">Tu ubicación no sale de tu móvil.</p>
+      </div>
+      <p id="aviso-demo" class="aviso-demo" hidden>Estás viendo datos simulados para demostración. No representan la situación real de La Vega.</p>
     </div>
 
-    <form id="formulario" hidden novalidate>
+    <div class="hero-mapa">
+      <div id="mapa" role="region" aria-label="Mapa de zonas de prevención y criaderos de La Vega"></div>
+      <ul class="leyenda" aria-label="Leyenda y resumen del mapa">
+        <li><span class="sw tension"></span><b id="c-tension">–</b><span id="l-tension">zonas prioritarias</span></li>
+        <li><span class="sw vigil"></span><b id="c-vig">–</b><span id="l-vig">zonas en vigilancia</span></li>
+        <li><span class="sw cri"></span><b id="c-conf">–</b><span id="l-conf">criaderos por limpiar</span></li>
+        <li><span class="sw cri-ok"></span><b id="c-aten">–</b><span id="l-aten">criaderos limpiados</span></li>
+        <li><span class="sw calma"></span>Sin aumento de fiebre</li>
+        <li><span class="sw sin"></span>Sin datos suficientes</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ─── Reportar ─── -->
+  <section class="seccion reportar" id="reportar" aria-labelledby="h-reportar">
+    <div class="cabeza">
+      <h2 id="h-reportar">Lo que ves en tu calle ayuda a toda La Vega</h2>
+      <p class="intro">Un neumático con agua, un tanque destapado o una cuneta estancada bastan para criar mosquitos. Márcalo en el mapa. Si alguien en tu casa tiene fiebre, avísanos sin dar tu nombre: así sabemos qué zonas necesitan prevención antes de que llegue un brote.</p>
+      <a id="btn-telegram" class="telegram" href="#" hidden>
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#1F4FE0"/><path d="M7.5 15.6l14.6-5.7c.7-.3 1.3.2 1.1 1.2l-2.5 11.8c-.2.8-.7 1-1.4.6l-3.8-2.8-1.8 1.8c-.2.2-.4.3-.8.3l.3-3.9 7.1-6.4c.3-.3-.1-.4-.5-.2l-8.8 5.5-3.8-1.2c-.8-.2-.8-.8.3-1Z" fill="#fff"/></svg>
+        <div><strong>¿Prefieres Telegram?</strong><span>Reporta con foto desde el bot, paso a paso.</span></div>
+      </a>
+    </div>
+
+    <form id="formulario" novalidate>
       <fieldset>
         <legend>¿Qué quieres reportar?</legend>
-        <div class="opciones">
-          <label><input type="radio" name="tipo" value="criadero" checked> Un criadero</label>
-          <label><input type="radio" name="tipo" value="fiebre"> Fiebre en mi casa</label>
+        <div class="eleccion">
+          <label class="opcion"><input type="radio" name="tipo" value="criadero" checked><strong>Un criadero</strong><span>Un lugar con agua estancada o basura.</span></label>
+          <label class="opcion"><input type="radio" name="tipo" value="fiebre"><strong>Fiebre en mi casa</strong><span>Anónimo. Solo pedimos el sector y unos datos.</span></label>
         </div>
       </fieldset>
 
-      <div id="f-criadero">
-        <p class="ayuda">Toca el mapa para marcar el lugar, o usa tu ubicación si estás allí.</p>
-        <div id="mini-mapa" aria-label="Mapa para marcar el criadero"></div>
-        <div class="fila">
-          <button id="mi-ubicacion" class="boton sec" type="button">Usar mi ubicación</button>
-          <p id="ubic-txt" class="ayuda" aria-live="polite">Sin punto marcado.</p>
+      <div class="panel-form">
+        <div id="f-criadero">
+          <p class="campo">¿Dónde está?</p>
+          <p class="ayuda">Toca el mapa para marcar el lugar, o usa tu ubicación si estás allí. Puedes arrastrar el marcador para ajustarlo.</p>
+          <div id="mini-mapa" aria-label="Mapa para marcar el criadero"></div>
+          <div class="fila">
+            <button id="mi-ubicacion" class="boton chico" type="button">Usar mi ubicación</button>
+            <p id="ubic-txt" class="ayuda" aria-live="polite">Todavía no has marcado ningún punto.</p>
+          </div>
+          <label class="campo" for="categoria">¿Qué tipo de criadero es?</label>
+          <select id="categoria">
+            <option value="neumaticos">Neumáticos</option>
+            <option value="recipientes">Recipientes o envases</option>
+            <option value="tanques">Tanques o tinacos destapados</option>
+            <option value="basura">Basura acumulada o vertedero</option>
+            <option value="agua">Aguas estancadas o cunetas</option>
+            <option value="otro">Otro</option>
+          </select>
         </div>
-        <label class="campo" for="categoria">Tipo de criadero</label>
-        <select id="categoria">
-          <option value="neumaticos">Neumáticos</option>
-          <option value="recipientes">Recipientes o envases</option>
-          <option value="tanques">Tanques o tinacos destapados</option>
-          <option value="basura">Basura acumulada o vertedero</option>
-          <option value="agua">Aguas estancadas o cunetas</option>
-          <option value="otro">Otro</option>
-        </select>
-      </div>
 
-      <div id="f-fiebre" hidden>
-        <p class="ayuda">Es anónimo. No pedimos nombre ni teléfono, y tu ubicación no sale de tu móvil: solo la usamos para elegir el sector.</p>
-        <label class="campo" for="sector">Sector donde vives</label>
-        <select id="sector"></select>
-        <div class="fila">
-          <button id="detectar-sector" class="boton sec" type="button">Detectar mi sector</button>
-          <p id="sector-txt" class="ayuda" aria-live="polite"></p>
+        <div id="f-fiebre" hidden>
+          <p class="ayuda">No pedimos nombre ni teléfono. Si usas tu ubicación, solo sirve para elegir el sector y no sale de tu móvil.</p>
+          <label class="campo" for="sector">¿En qué sector vives?</label>
+          <select id="sector"></select>
+          <div class="fila">
+            <button id="detectar-sector" class="boton chico" type="button">Detectar mi sector</button>
+            <p id="sector-txt" class="ayuda" aria-live="polite"></p>
+          </div>
+          <label class="campo" for="edad">Edad de la persona con fiebre</label>
+          <select id="edad">
+            <option value="0-4">0 a 4 años</option><option value="5-14">5 a 14 años</option>
+            <option value="15-64" selected>15 a 64 años</option><option value="65+">65 años o más</option>
+          </select>
+          <label class="campo" for="dias">¿Cuántos días lleva con fiebre?</label>
+          <select id="dias">
+            <option value="1">1 día</option><option value="2">2 días</option><option value="3">3 días</option>
+            <option value="4-7">4 a 7 días</option><option value="8+">Más de 7 días</option>
+          </select>
+          <!-- Textos clínicos adaptados del Protocolo de Manejo Clínico del Dengue (MSP). PENDIENTES DE VALIDACIÓN por la autoridad sanitaria. -->
+          <fieldset>
+            <legend>¿Tiene dolor de barriga fuerte, vómitos que no paran, algún sangrado (encías, nariz, piel, vómito, heces o regla muy abundante), mucho sueño, confusión o convulsiones, mareo o desmayo, manos y pies fríos o dificultad para respirar?</legend>
+            <div class="opciones">
+              <label><input type="radio" name="alarma" value="si"> Sí</label>
+              <label><input type="radio" name="alarma" value="no"> No</label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>¿Ha consultado ya a un médico por esta fiebre?</legend>
+            <div class="opciones">
+              <label><input type="radio" name="consulto" value="si"> Sí</label>
+              <label><input type="radio" name="consulto" value="no"> No</label>
+            </div>
+          </fieldset>
+          <!-- Grupo B del protocolo. La respuesta NO se envía: solo elige el consejo. -->
+          <fieldset>
+            <legend>¿Está embarazada, es un bebé menor de 1 año, tiene alguna enfermedad crónica (diabetes, presión alta, asma, anemia falciforme, enfermedad de riñón o hígado, obesidad importante), toma anticoagulantes, o vive sola o lejos de un centro de salud?</legend>
+            <p class="ayuda">Esta respuesta no se envía ni se guarda: solo sirve para darte el consejo adecuado.</p>
+            <div class="opciones">
+              <label><input type="radio" name="riesgo" value="si"> Sí</label>
+              <label><input type="radio" name="riesgo" value="no"> No</label>
+            </div>
+          </fieldset>
+          <label class="campo" for="prueba">¿Le han hecho prueba de dengue?</label>
+          <select id="prueba">
+            <option value="no">No le han hecho prueba</option><option value="pos">Positiva a dengue</option>
+            <option value="neg">Negativa</option><option value="pend">Pendiente de resultado</option>
+          </select>
+          <label class="check"><input type="checkbox" id="consent"> <span>Acepto que estos datos se registren de forma anónima y se publiquen solo sumados por sector.</span></label>
         </div>
-        <label class="campo" for="edad">Edad de la persona con fiebre</label>
-        <select id="edad">
-          <option value="0-4">0 a 4 años</option><option value="5-14">5 a 14 años</option>
-          <option value="15-64" selected>15 a 64 años</option><option value="65+">65 años o más</option>
-        </select>
-        <label class="campo" for="dias">Días con fiebre</label>
-        <select id="dias">
-          <option value="1">1 día</option><option value="2">2 días</option><option value="3">3 días</option>
-          <option value="4-7">4 a 7 días</option><option value="8+">Más de 7 días</option>
-        </select>
-        <fieldset>
-          <legend>¿Tiene dolor de barriga fuerte, vómitos que no paran, algún sangrado (encías, nariz, piel, vómito, heces o regla muy abundante), mucho sueño, confusión o convulsiones, mareo o desmayo, manos y pies fríos o dificultad para respirar?</legend>
-          <div class="opciones">
-            <label><input type="radio" name="alarma" value="si"> Sí</label>
-            <label><input type="radio" name="alarma" value="no"> No</label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>¿Ha consultado ya a un médico por esta fiebre?</legend>
-          <div class="opciones">
-            <label><input type="radio" name="consulto" value="si"> Sí</label>
-            <label><input type="radio" name="consulto" value="no"> No</label>
-          </div>
-        </fieldset>
-        <!-- Grupo B del protocolo del MSP. La respuesta NO se envía: solo elige el consejo. Pendiente de validación sanitaria. -->
-        <fieldset>
-          <legend>¿Está embarazada, es un bebé menor de 1 año, tiene alguna enfermedad crónica (diabetes, presión alta, asma, anemia falciforme, enfermedad de riñón o hígado, obesidad importante), toma anticoagulantes, o vive sola o lejos de un centro de salud?</legend>
-          <p class="ayuda">Esta respuesta no se envía ni se guarda: solo sirve para darte el consejo adecuado.</p>
-          <div class="opciones">
-            <label><input type="radio" name="riesgo" value="si"> Sí</label>
-            <label><input type="radio" name="riesgo" value="no"> No</label>
-          </div>
-        </fieldset>
-        <label class="campo" for="prueba">Prueba de dengue</label>
-        <select id="prueba">
-          <option value="no">No le han hecho prueba</option><option value="pos">Positiva a dengue</option>
-          <option value="neg">Negativa</option><option value="pend">Pendiente de resultado</option>
-        </select>
-        <label class="check"><input type="checkbox" id="consent"> <span>Acepto que estos datos se registren de forma anónima y se publiquen solo sumados por sector.</span></label>
       </div>
 
       <input type="text" id="website" class="trampa" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <button id="enviar" class="boton primario" type="submit">Enviar reporte</button>
-      <p id="form-msg" role="status" aria-live="polite"></p>
+      <div class="envio">
+        <button id="enviar" class="boton primario" type="submit">Enviar reporte</button>
+        <p id="form-msg" role="status" aria-live="polite"></p>
+      </div>
       <div id="urgente" class="urgente" hidden>Lo que describes puede ser un signo de alarma. Acude ahora mismo a un centro de salud o llama al <a href="tel:911">911</a>. No esperes a que baje la fiebre.</div>
       <div id="consejo" class="consejo" hidden aria-live="polite"></div>
     </form>
   </section>
 
-  <!-- Contenido adaptado del Protocolo de Manejo Clínico del Dengue (MSP). PENDIENTE DE VALIDACIÓN por la autoridad sanitaria. -->
-  <section class="alarma" id="alarma">
-    <h2>Signos de alarma del dengue</h2>
-    <p>Acude de inmediato a un centro de salud si la persona con fiebre tiene alguno de estos signos:</p>
-    <ul>
-      <li>Dolor de barriga fuerte y continuo</li>
-      <li>Vómitos que no paran</li>
-      <li>Sangrado de encías o nariz, o manchitas rojas o moretones en la piel</li>
-      <li>Vómito con sangre, o heces negras o con sangre</li>
-      <li>Regla muy abundante o sangrado vaginal</li>
-      <li>Mucho sueño, confusión, irritabilidad o convulsiones</li>
-      <li>Mareo, desmayo, o manos y pies fríos</li>
-      <li>Dificultad para respirar</li>
-      <li>Fiebre muy alta que no baja con acetaminofén</li>
-    </ul>
-    <p><strong>Los días más peligrosos suelen empezar entre el día 3 y el 5, muchas veces cuando baja la fiebre</strong>, y duran uno o dos días. Que baje la fiebre no significa que se haya curado.</p>
-    <p><strong>Deben ir al centro de salud aunque no tengan signos de alarma:</strong> embarazadas, bebés menores de 1 año, mayores de 65 años y personas con enfermedades crónicas o que toman anticoagulantes.</p>
-    <p>En casa: reposo y mucho líquido (suero oral, leche, sopa, agua de arroz o jugos, con cuidado si hay diabetes), no solo agua. Duerme con mosquitero mientras haya fiebre, para que el mosquito no contagie a tu familia.</p>
-    <p>No tomes aspirina, ibuprofeno, metamizol (dipirona), diclofenac, naproxeno ni otros antiinflamatorios, y no te pongas inyecciones. Para la fiebre, el medicamento indicado es el acetaminofén (paracetamol), en la dosis que indique un profesional de salud. Si ya tomas aspirina, anticoagulantes u otro tratamiento fijo, consulta a tu médico antes de cambiarlo.</p>
-    <p class="tel">Emergencias: <a href="tel:911">911</a></p>
-  </section>
+  <!-- ─── Signos de alarma. Adaptado del Protocolo de Manejo Clínico del Dengue (MSP). PENDIENTE DE VALIDACIÓN por la autoridad sanitaria. ─── -->
+  <div class="alarma-banda" id="alarma">
+    <section class="alarma" aria-labelledby="h-alarma">
+      <div>
+        <h2 id="h-alarma">Signos de alarma del dengue</h2>
+        <p class="intro">Si la persona con fiebre tiene alguno de estos signos, acude de inmediato a un centro de salud. No esperes a que baje la fiebre.</p>
+        <a class="llamar" href="tel:911">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z" fill="currentColor"/></svg>
+          Llamar al 911
+        </a>
+      </div>
+      <div>
+        <ul class="signos">
+          <li>Dolor de barriga fuerte y continuo</li>
+          <li>Vómitos que no paran</li>
+          <li>Sangrado de encías o nariz, o manchitas rojas o moretones en la piel</li>
+          <li>Vómito con sangre, o heces negras o con sangre</li>
+          <li>Regla muy abundante o sangrado vaginal</li>
+          <li>Mucho sueño, confusión, irritabilidad o convulsiones</li>
+          <li>Mareo, desmayo, o manos y pies fríos</li>
+          <li>Dificultad para respirar</li>
+          <li>Fiebre muy alta que no baja con acetaminofén</li>
+        </ul>
+        <div class="cuidados">
+          <div class="destacado">
+            <h3>Cuando baja la fiebre, no bajes la guardia</h3>
+            <p>Los días más peligrosos suelen empezar entre el día 3 y el 5, muchas veces cuando baja la fiebre, y duran uno o dos días. Que baje la fiebre no significa que se haya curado.</p>
+          </div>
+          <div>
+            <h3>Deben ir al centro de salud aunque no tengan signos de alarma</h3>
+            <p>Embarazadas, bebés menores de 1 año, mayores de 65 años y personas con enfermedades crónicas o que toman anticoagulantes.</p>
+          </div>
+          <div>
+            <h3>En casa</h3>
+            <p>Reposo y mucho líquido (suero oral, leche, sopa, agua de arroz o jugos, con cuidado si hay diabetes), no solo agua. Duerme con mosquitero mientras haya fiebre, para que el mosquito no contagie a tu familia.</p>
+          </div>
+          <div class="destacado">
+            <h3>Medicamentos</h3>
+            <p>No tomes aspirina, ibuprofeno, metamizol (dipirona), diclofenac, naproxeno ni otros antiinflamatorios, y no te pongas inyecciones. Para la fiebre, el medicamento indicado es el acetaminofén (paracetamol), en la dosis que indique un profesional de salud. Si ya tomas aspirina, anticoagulantes u otro tratamiento fijo, consulta a tu médico antes de cambiarlo.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
 
-  <section class="bloque">
-    <h2>Cómo funciona</h2>
-    <p>Cada criadero reportado se revisa antes de aparecer en el mapa y se marca como limpiado cuando se atiende. Los reportes de fiebre nunca se muestran uno a uno: solo publicamos el total de cada zona, y solo cuando hay <span id="kmin">5</span> o más en los últimos 7 días.</p>
-    <p>Una zona pasa a prioritaria cuando la fiebre reportada esta semana supera claramente lo habitual en esa misma zona. Es una señal para limpiar, fumigar y reforzar la atención, no un diagnóstico.</p>
+  <!-- ─── Cómo funciona ─── -->
+  <section class="seccion" aria-labelledby="h-como">
+    <h2 id="h-como">Así viaja un reporte hasta el mapa</h2>
+    <ol class="pasos">
+      <li><h3>Reportas</h3><p>Marcas el lugar desde esta página o por Telegram, donde también puedes enviar una foto.</p></li>
+      <li><h3>Se confirma</h3><p>Otra persona lo confirma cerca del mismo punto o lo revisa el equipo del piloto. Solo entonces aparece en el mapa.</p></li>
+      <li><h3>Se limpia</h3><p>Cuando el criadero se atiende, el punto cambia a limpiado. Así se ve qué queda pendiente en cada zona.</p></li>
+    </ol>
+    <div class="privacidad">
+      <div>
+        <h3>La fiebre se cuenta, nunca se señala</h3>
+        <p>Los avisos de fiebre no se muestran uno a uno. Solo publicamos el total de cada zona, y solo cuando hay <span id="kmin">5</span> o más en los últimos 7 días. No guardamos nombres, teléfonos ni ubicaciones.</p>
+      </div>
+      <div>
+        <h3>Qué significa una zona prioritaria</h3>
+        <p>La fiebre reportada esta semana supera claramente lo habitual en esa misma zona. Es una señal para limpiar, fumigar y reforzar la atención, no un diagnóstico.</p>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer>
-  <p>Piloto de vigilancia participativa en el municipio de La Vega. No diagnostica ni sustituye la atención médica ni la vigilancia epidemiológica oficial.</p>
-  <p>No guardamos nombres, teléfonos ni ubicaciones de quienes reportan fiebre. Mapa base © colaboradores de OpenStreetMap.</p>
+  <p>Piloto de vigilancia participativa en el municipio de La Vega. No es un servicio oficial: no diagnostica ni sustituye la atención médica ni la vigilancia epidemiológica del Ministerio de Salud.</p>
+  <p>Mapa base © colaboradores de OpenStreetMap.</p>
 </footer>
+
+<nav class="barra-movil" aria-label="Accesos rápidos">
+  <a class="boton primario" href="#reportar">Reportar</a>
+  <a class="boton" href="#alarma">Signos de alarma</a>
+</nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-/* ─── Configuración: rellenar tras desplegar el backend ─── */
+/* ─── Configuración ─── */
 const CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbzN6Vvmbbtwtub4qIGGDSVdkSw_7nZIqHodEGWU7HkjnQiXITj9cKYzXzF5uwKrzzeZkA/exec',          // URL /exec del despliegue de Apps Script. Vacío = modo demostración local.
-  BOT_USERNAME: 'AlertaDengueRDbot',     // Nombre del bot sin @. Vacío = oculta el botón de Telegram.
+  API_URL: 'https://script.google.com/macros/s/AKfycbzN6Vvmbbtwtub4qIGGDSVdkSw_7nZIqHodEGWU7HkjnQiXITj9cKYzXzF5uwKrzzeZkA/exec',   // Vacío = modo demostración local.
+  BOT_USERNAME: 'AlertaDengueRDbot',   // Sin @. Vacío = oculta el acceso a Telegram.
   REFRESCO_MIN: 15,
   CENTRO: [19.2221, -70.5296],
 };
 
 const NIVELES = {
-  tension:    { color: '#C0342B', op: 0.55, nombre: 'Zona prioritaria' },
-  vigilancia: { color: '#E3A21A', op: 0.50, nombre: 'En vigilancia' },
-  normal:     { color: '#CFE3D6', op: 0.45, nombre: 'Sin aumento de fiebre' },
-  sin_datos:  { color: '#E3E8ED', op: 0.35, nombre: 'Sin datos suficientes' },
+  tension:    { color: '#D0342C', op: 0.55, nombre: 'Zona prioritaria' },
+  vigilancia: { color: '#EBA10C', op: 0.50, nombre: 'En vigilancia' },
+  normal:     { color: '#BFE0CB', op: 0.45, nombre: 'Sin aumento de fiebre' },
+  sin_datos:  { color: '#E4E9EF', op: 0.35, nombre: 'Sin datos suficientes' },
 };
 const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATRIB = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const QUIETO = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const t0 = Date.now();
-let datos = null, capaS = null, capaC = null, mini = null, marcador = null;
+let datos = null, capaS = null, capaC = null, mini = null, marcador = null, yo = null, capas = {};
 
 /* ─── Mapa principal ─── */
-const mapa = L.map('mapa', { scrollWheelZoom: false }).setView(CONFIG.CENTRO, 13);
+const mapa = L.map('mapa', { scrollWheelZoom: false, zoomSnap: 0.25 }).setView(CONFIG.CENTRO, 13);
 L.tileLayer(TILE, { maxZoom: 19, attribution: ATRIB }).addTo(mapa);
 
 /* ─── Datos de demostración (sin backend) ─── */
@@ -302,14 +485,19 @@ function datosDemo() {
 }
 
 /* ─── Carga y pintado ─── */
+function estado(texto, clase) { $('#estado-txt').textContent = texto; const e = $('#estado'); e.classList.remove('vivo', 'demo'); if (clase) e.classList.add(clase); }
+
 async function cargar() {
   try {
     if (!CONFIG.API_URL) datos = datosDemo();
     else { const r = await fetch(CONFIG.API_URL, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); datos = await r.json(); }
     pintar();
   } catch (e) {
-    $('#estado').textContent = 'No se pudieron cargar los datos. Se reintentará en unos minutos.';
-    if (!datos) { $('#titular').textContent = 'Mapa temporalmente no disponible'; $('#subtitular').textContent = 'Mientras tanto, puedes reportar criaderos y consultar los signos de alarma.'; }
+    estado('Sin conexión con los datos. Se reintentará en unos minutos.');
+    if (!datos) {
+      $('#titular').textContent = 'El mapa no está disponible en este momento';
+      $('#subtitular').textContent = 'Puedes reportar igualmente y consultar los signos de alarma. Volveremos a cargar los datos en unos minutos.';
+    }
   }
 }
 
@@ -318,55 +506,87 @@ function hace(iso) {
   const m = Math.round((Date.now() - new Date(iso)) / 60000);
   if (m < 2) return 'hace un momento';
   if (m < 60) return 'hace ' + m + ' minutos';
-  const h = Math.round(m / 60); return h < 24 ? 'hace ' + h + (h === 1 ? ' hora' : ' horas') : new Date(iso).toLocaleDateString('es-DO');
+  const h = Math.round(m / 60); return h < 24 ? 'hace ' + h + (h === 1 ? ' hora' : ' horas') : 'el ' + new Date(iso).toLocaleDateString('es-DO');
 }
 const palabra = n => ['Ninguna', 'Una', 'Dos', 'Tres', 'Cuatro', 'Cinco'][n] || String(n);
+const plural = (n, uno, varios) => n === 1 ? uno : varios;
 
 function pintar() {
-  const R = datos.resumen, est = $('#estado');
-  est.textContent = datos.demo ? 'Datos simulados' : 'Actualizado ' + hace(datos.actualizado);
-  est.classList.toggle('demo', !!datos.demo);
+  const R = datos.resumen, primera = !pintar.hecho;
+  if (datos.demo) estado('Datos simulados', 'demo'); else estado('Actualizado ' + hace(datos.actualizado), 'vivo');
   $('#aviso-demo').hidden = !datos.demo;
   $('#kmin').textContent = datos.k_min || 5;
 
-  const t = R.zonas_tension, v = R.zonas_vigilancia;
-  const nombresT = datos.sectores.features.filter(f => f.properties.nivel === 'tension').map(f => f.properties.nombre);
+  const t = R.zonas_tension, v = R.zonas_vigilancia, feats = datos.sectores.features;
   if (t > 0) {
-    $('#titular').textContent = palabra(t) + (t === 1 ? ' zona de La Vega necesita' : ' zonas de La Vega necesitan') + ' prevención urgente esta semana.';
-    $('#subtitular').textContent = 'La fiebre reportada en ' + nombresT.join(' y ') + ' supera lo habitual. Si vives cerca, elimina el agua estancada y vigila los signos de alarma.';
+    $('#titular').textContent = palabra(t) + (t === 1 ? ' zona de La Vega necesita' : ' zonas de La Vega necesitan') + ' prevención urgente esta semana';
+    $('#subtitular').textContent = 'La fiebre reportada está por encima de lo habitual. Si vives cerca, elimina hoy el agua estancada y vigila los signos de alarma.';
   } else if (v > 0) {
-    $('#titular').textContent = palabra(v) + (v === 1 ? ' zona de La Vega está' : ' zonas de La Vega están') + ' en vigilancia esta semana.';
+    $('#titular').textContent = palabra(v) + (v === 1 ? ' zona de La Vega está' : ' zonas de La Vega están') + ' en vigilancia esta semana';
     $('#subtitular').textContent = 'La fiebre reportada empieza a subir. Es el momento de limpiar criaderos, antes de que haya un brote.';
   } else {
-    $('#titular').textContent = 'Esta semana no hay zonas de La Vega con aumento de fiebre.';
-    $('#subtitular').textContent = 'La prevención funciona antes del brote: sigue eliminando el agua estancada cerca de tu casa.';
+    $('#titular').textContent = 'Esta semana no hay zonas de La Vega con aumento de fiebre';
+    $('#subtitular').textContent = 'La prevención funciona antes del brote. Sigue eliminando el agua estancada cerca de tu casa.';
   }
-  $('#c-tension').textContent = t; $('#c-vig').textContent = v;
-  $('#c-conf').textContent = R.criaderos_confirmados; $('#c-aten').textContent = R.criaderos_atendidos;
+
+  $('#c-tension').textContent = t; $('#l-tension').textContent = plural(t, 'zona prioritaria', 'zonas prioritarias');
+  $('#c-vig').textContent = v; $('#l-vig').textContent = plural(v, 'zona en vigilancia', 'zonas en vigilancia');
+  $('#c-conf').textContent = R.criaderos_confirmados; $('#l-conf').textContent = plural(R.criaderos_confirmados, 'criadero por limpiar', 'criaderos por limpiar');
+  $('#c-aten').textContent = R.criaderos_atendidos; $('#l-aten').textContent = plural(R.criaderos_atendidos, 'criadero limpiado', 'criaderos limpiados');
 
   if (capaS) capaS.remove();
+  capas = {};
+  let orden = 0;
   capaS = L.geoJSON(datos.sectores, {
-    style: f => { const n = NIVELES[f.properties.nivel] || NIVELES.sin_datos; return { color: '#fff', weight: 1.5, fillColor: n.color, fillOpacity: n.op }; },
+    style: f => {
+      const k = f.properties.nivel, n = NIVELES[k] || NIVELES.sin_datos, alta = k === 'tension';
+      return { color: alta ? n.color : '#fff', weight: alta ? 2.5 : 1.5, fillColor: n.color, fillOpacity: n.op,
+               className: 'zona' + (alta ? ' zona-tension' : '') + (primera ? ' zona-entra' : '') };
+    },
     onEachFeature: (f, l) => {
-      const p = f.properties, n = NIVELES[p.nivel] || NIVELES.sin_datos;
-      const casos = p.suprimido ? 'Menos de ' + (datos.k_min || 5) + ' reportes de fiebre en 7 días' : p.casos_7d + ' reportes de fiebre en 7 días';
+      const p = f.properties, n = NIVELES[p.nivel] || NIVELES.sin_datos, i = orden++;
+      capas[p.id] = l;
+      const casos = p.suprimido ? 'Menos de ' + (datos.k_min || 5) + ' avisos de fiebre en 7 días' : p.casos_7d + ' avisos de fiebre en 7 días';
       l.bindPopup('<strong>' + esc(p.nombre) + '</strong><br>' + esc(n.nombre) + '<br>' + esc(casos));
+      if (primera) l.on('add', () => { const el = l.getElement(); if (el) el.style.animationDelay = (i * 45) + 'ms'; });
     },
   }).addTo(mapa);
 
   if (capaC) capaC.remove();
   capaC = L.layerGroup(datos.criaderos.map(c => {
     const limpio = c.estado === 'atendido';
-    return L.circleMarker([c.lat, c.lon], { radius: 6, weight: 2, color: limpio ? '#2E7D4F' : '#15212B', fillColor: limpio ? '#fff' : '#15212B', fillOpacity: 1 })
+    return L.circleMarker([c.lat, c.lon], { radius: 6, weight: 2.5, color: limpio ? '#1E8449' : '#0F1B2D', fillColor: limpio ? '#fff' : '#0F1B2D', fillOpacity: 1 })
       .bindPopup('<strong>' + esc(c.categoria) + '</strong><br>' + (limpio ? 'Ya limpiado' : 'Confirmado, pendiente de limpieza') + '<br>Reportado el ' + esc(c.fecha) +
-        (c.foto ? '<br><img src="' + esc(c.foto) + '" alt="Foto del criadero" style="max-width:200px;margin-top:6px;border-radius:4px">' : ''));
+        (c.foto ? '<br><img src="' + esc(c.foto) + '" alt="Foto del criadero" style="max-width:200px;margin-top:6px;border-radius:6px">' : ''));
   })).addTo(mapa);
 
-  if (!pintar.encuadrado && capaS.getLayers().length) { mapa.fitBounds(capaS.getBounds(), { padding: [12, 12] }); pintar.encuadrado = true; }
+  if (primera && capaS.getLayers().length) mapa.fitBounds(capaS.getBounds(), { padding: [14, 14] });
+  pintar.hecho = true;
+
+  // Zonas destacadas: botones que llevan al mapa
+  const destacadas = feats.filter(f => f.properties.nivel === 'tension').concat(feats.filter(f => f.properties.nivel === 'vigilancia'));
+  const chips = $('#chips');
+  chips.replaceChildren(...destacadas.map(f => {
+    const p = f.properties, li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip';
+    b.innerHTML = '<span class="sw" style="background:' + NIVELES[p.nivel].color + '" aria-hidden="true"></span>' + esc(p.nombre) +
+      '<span class="sr"> (' + esc(NIVELES[p.nivel].nombre) + '). Ver en el mapa</span>';
+    b.addEventListener('click', () => irAZona(p.id));
+    li.append(b); return li;
+  }));
+  chips.hidden = !destacadas.length;
 
   const sel = $('#sector'), previo = sel.value;
-  sel.innerHTML = datos.sectores.features.map(f => '<option value="' + esc(f.properties.id) + '">' + esc(f.properties.nombre) + '</option>').join('');
+  sel.innerHTML = feats.map(f => '<option value="' + esc(f.properties.id) + '">' + esc(f.properties.nombre) + '</option>').join('');
   if (previo) sel.value = previo;
+}
+
+function irAZona(id) {
+  const l = capas[id]; if (!l) return;
+  const caja = $('#mapa').getBoundingClientRect();
+  if (caja.top < 0 || caja.bottom > window.innerHeight) $('#mapa').scrollIntoView({ behavior: QUIETO ? 'auto' : 'smooth', block: 'center' });
+  if (QUIETO) mapa.fitBounds(l.getBounds(), { padding: [30, 30] }); else mapa.flyToBounds(l.getBounds(), { padding: [30, 30], duration: 0.8 });
+  setTimeout(() => l.openPopup(), QUIETO ? 0 : 850);
 }
 
 /* ─── Geometría ─── */
@@ -383,9 +603,26 @@ function ubicar() {
   });
 }
 
+/* ─── Mi zona (todo ocurre en el dispositivo) ─── */
+$('#mi-zona').addEventListener('click', async () => {
+  const txt = $('#zona-txt');
+  txt.textContent = 'Buscando tu ubicación…';
+  try {
+    const [la, lo] = await ubicar(), s = sectorDe(la, lo);
+    if (yo) yo.remove();
+    yo = L.circleMarker([la, lo], { radius: 8, weight: 3, color: '#fff', fillColor: '#1F4FE0', fillOpacity: 1 }).addTo(mapa).bindTooltip('Estás aquí');
+    if (!s) { txt.textContent = 'Tu ubicación queda fuera de la zona del piloto.'; mapa.setView([la, lo], 14); return; }
+    const n = NIVELES[s.nivel] || NIVELES.sin_datos;
+    txt.textContent = 'Estás en ' + s.nombre + ': ' + n.nombre.toLowerCase() + '.';
+    irAZona(s.id);
+  } catch (e) { txt.textContent = e.message; }
+});
+
 /* ─── Formulario ─── */
 function tipo() { return document.querySelector('input[name=tipo]:checked').value; }
 function radio(n) { const r = document.querySelector('input[name=' + n + ']:checked'); return r ? r.value : ''; }
+function msg(t, error) { const m = $('#form-msg'); m.textContent = t; m.classList.toggle('error', !!error); }
+
 /* Mismo criterio que consejosFiebre_ en Code.gs. Pendiente de validación sanitaria. */
 function consejosFiebre(r) {
   const m = [];
@@ -401,9 +638,15 @@ function mostrarConsejos(lista) {
   const c = $('#consejo');
   c.replaceChildren(...lista.map(t => { const p = document.createElement('p'); p.textContent = t; return p; }));
   c.hidden = !lista.length;
+  if (lista.length) { c.classList.remove('aparece'); void c.offsetWidth; c.classList.add('aparece'); }
 }
-function msg(t, error) { const m = $('#form-msg'); m.textContent = t; m.classList.toggle('error', !!error); }
 
+function iniciarMini() {
+  if (mini) return;
+  mini = L.map('mini-mapa', { scrollWheelZoom: false }).setView(CONFIG.CENTRO, 14);
+  L.tileLayer(TILE, { maxZoom: 19, attribution: ATRIB }).addTo(mini);
+  mini.on('click', e => marcar(e.latlng.lat, e.latlng.lng));
+}
 function marcar(lat, lon) {
   if (marcador) marcador.setLatLng([lat, lon]);
   else marcador = L.marker([lat, lon], { draggable: true, keyboard: true }).addTo(mini).on('dragend', () => describirPunto());
@@ -413,25 +656,27 @@ function describirPunto() {
   const ll = marcador.getLatLng(), s = sectorDe(ll.lat, ll.lng);
   $('#ubic-txt').textContent = s ? 'Punto marcado en ' + s.nombre + '.' : 'Ese punto queda fuera de la zona del piloto.';
 }
-
-$('#abrir-form').addEventListener('click', () => {
-  const f = $('#formulario'), abrir = f.hidden;
-  f.hidden = !abrir; $('#abrir-form').setAttribute('aria-expanded', String(abrir));
-  if (abrir && !mini) {
-    mini = L.map('mini-mapa').setView(CONFIG.CENTRO, 14);
-    L.tileLayer(TILE, { maxZoom: 19, attribution: ATRIB }).addTo(mini);
-    mini.on('click', e => marcar(e.latlng.lat, e.latlng.lng));
-  }
-  if (abrir) setTimeout(() => mini.invalidateSize(), 50);
-});
+// El mapa pequeño solo se carga cuando el formulario se acerca a la pantalla (ahorra datos móviles).
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver((es, o) => { if (es.some(e => e.isIntersecting)) { iniciarMini(); o.disconnect(); } }, { rootMargin: '300px' }).observe($('#f-criadero'));
+} else iniciarMini();
 
 document.querySelectorAll('input[name=tipo]').forEach(r => r.addEventListener('change', () => {
   const c = tipo() === 'criadero';
   $('#f-criadero').hidden = !c; $('#f-fiebre').hidden = c; msg(''); $('#urgente').hidden = true; $('#consejo').hidden = true;
-  if (c && mini) setTimeout(() => mini.invalidateSize(), 50);
+  if (c) { iniciarMini(); setTimeout(() => mini.invalidateSize(), 50); }
 }));
 
+function seleccionarTipo(t) {
+  const r = document.querySelector('input[name=tipo][value="' + t + '"]');
+  if (!r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); }
+  $('#reportar').scrollIntoView({ behavior: QUIETO ? 'auto' : 'smooth' });
+  setTimeout(() => r.focus({ preventScroll: true }), QUIETO ? 0 : 500);
+}
+document.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () => seleccionarTipo(b.dataset.tipo)));
+
 $('#mi-ubicacion').addEventListener('click', async () => {
+  iniciarMini();
   $('#ubic-txt').textContent = 'Buscando tu ubicación…';
   try { const [la, lo] = await ubicar(); marcar(la, lo); mini.setView([la, lo], 17); }
   catch (e) { $('#ubic-txt').textContent = e.message; }
@@ -478,12 +723,18 @@ $('#formulario').addEventListener('submit', async ev => {
   if (payload.tipo === 'criadero') {
     msg(pre + (res.duplicado ? 'Ya había un reporte en ese punto. Gracias por confirmarlo.' : 'Reporte enviado. Aparecerá en el mapa cuando se confirme.'));
   } else {
-    msg(pre + 'Reporte enviado de forma anónima. Gracias.');
-    mostrarConsejos(consejosFiebre(Object.assign({ riesgo: radio('riesgo') }, payload)));
+    msg(pre + 'Aviso enviado de forma anónima. Gracias.');
+    mostrarConsejos(consejosFiebre(Object.assign({ riesgo: radio('riesgo') }, payload)));   // riesgo no viaja al servidor
     if (payload.alarma === 'si') { $('#urgente').hidden = false; $('#urgente').scrollIntoView({ block: 'center' }); }
     else if (!$('#consejo').hidden) $('#consejo').scrollIntoView({ block: 'center' });
   }
 });
+
+/* ─── Barra móvil: se oculta mientras el formulario está en pantalla ─── */
+if ('IntersectionObserver' in window) {
+  const barra = $('.barra-movil');
+  new IntersectionObserver(es => { barra.classList.toggle('oculta', es[0].isIntersecting); }, { threshold: 0.15 }).observe($('#reportar'));
+}
 
 /* ─── Arranque ─── */
 if (CONFIG.BOT_USERNAME) { const t = $('#btn-telegram'); t.href = 'https://t.me/' + encodeURIComponent(CONFIG.BOT_USERNAME); t.hidden = false; }
