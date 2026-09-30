@@ -73,6 +73,9 @@
   #form-msg.error { color: var(--alert); }
   .urgente { margin-top: 1rem; padding: 1rem; background: var(--alert); color: #fff; border-radius: 6px; font-weight: 700; }
   .urgente a { color: #fff; }
+  .consejo { margin-top: 1rem; padding: 1rem 1.1rem; border-left: 4px solid var(--rain); background: var(--paper); border-radius: 0 6px 6px 0; }
+  .consejo p { margin: 0 0 0.6rem; }
+  .consejo p:last-child { margin-bottom: 0; }
 
   .alarma { margin-top: 2.75rem; padding: 1.5rem 1.5rem 1.25rem; border-left: 6px solid var(--alert); background: #FBEDEC; max-width: 46rem; }
   .alarma ul { padding-left: 1.2rem; margin: 0.5rem 0 1rem; }
@@ -171,7 +174,7 @@
           <option value="4-7">4 a 7 días</option><option value="8+">Más de 7 días</option>
         </select>
         <fieldset>
-          <legend>¿Tiene dolor de barriga fuerte, vómitos que no paran, sangrado, mucho sueño o confusión, o manos y pies fríos?</legend>
+          <legend>¿Tiene dolor de barriga fuerte, vómitos que no paran, algún sangrado (encías, nariz, piel, vómito, heces o regla muy abundante), mucho sueño, confusión o convulsiones, mareo o desmayo, manos y pies fríos o dificultad para respirar?</legend>
           <div class="opciones">
             <label><input type="radio" name="alarma" value="si"> Sí</label>
             <label><input type="radio" name="alarma" value="no"> No</label>
@@ -182,6 +185,15 @@
           <div class="opciones">
             <label><input type="radio" name="consulto" value="si"> Sí</label>
             <label><input type="radio" name="consulto" value="no"> No</label>
+          </div>
+        </fieldset>
+        <!-- Grupo B del protocolo del MSP. La respuesta NO se envía: solo elige el consejo. Pendiente de validación sanitaria. -->
+        <fieldset>
+          <legend>¿Está embarazada, es un bebé menor de 1 año, tiene alguna enfermedad crónica (diabetes, presión alta, asma, anemia falciforme, enfermedad de riñón o hígado, obesidad importante), toma anticoagulantes, o vive sola o lejos de un centro de salud?</legend>
+          <p class="ayuda">Esta respuesta no se envía ni se guarda: solo sirve para darte el consejo adecuado.</p>
+          <div class="opciones">
+            <label><input type="radio" name="riesgo" value="si"> Sí</label>
+            <label><input type="radio" name="riesgo" value="no"> No</label>
           </div>
         </fieldset>
         <label class="campo" for="prueba">Prueba de dengue</label>
@@ -196,21 +208,29 @@
       <button id="enviar" class="boton primario" type="submit">Enviar reporte</button>
       <p id="form-msg" role="status" aria-live="polite"></p>
       <div id="urgente" class="urgente" hidden>Lo que describes puede ser un signo de alarma. Acude ahora mismo a un centro de salud o llama al <a href="tel:911">911</a>. No esperes a que baje la fiebre.</div>
+      <div id="consejo" class="consejo" hidden aria-live="polite"></div>
     </form>
   </section>
 
+  <!-- Contenido adaptado del Protocolo de Manejo Clínico del Dengue (MSP). PENDIENTE DE VALIDACIÓN por la autoridad sanitaria. -->
   <section class="alarma" id="alarma">
     <h2>Signos de alarma del dengue</h2>
-    <p>Acude de inmediato a un centro de salud si la persona con fiebre tiene:</p>
+    <p>Acude de inmediato a un centro de salud si la persona con fiebre tiene alguno de estos signos:</p>
     <ul>
       <li>Dolor de barriga fuerte y continuo</li>
       <li>Vómitos que no paran</li>
-      <li>Sangrado de encías o nariz, o vómito o heces con sangre</li>
-      <li>Mucho sueño, confusión o irritabilidad</li>
-      <li>Manos y pies fríos, piel pálida o desmayo</li>
+      <li>Sangrado de encías o nariz, o manchitas rojas o moretones en la piel</li>
+      <li>Vómito con sangre, o heces negras o con sangre</li>
+      <li>Regla muy abundante o sangrado vaginal</li>
+      <li>Mucho sueño, confusión, irritabilidad o convulsiones</li>
+      <li>Mareo, desmayo, o manos y pies fríos</li>
+      <li>Dificultad para respirar</li>
+      <li>Fiebre muy alta que no baja con acetaminofén</li>
     </ul>
-    <p><strong>El momento más peligroso suele llegar cuando la fiebre baja</strong>, entre el día 3 y el 7. No es señal de curación.</p>
-    <p>Bebe mucho líquido y reposa. No tomes aspirina, ibuprofeno ni otros antiinflamatorios. Para la fiebre, el medicamento indicado es el acetaminofén (paracetamol), en la dosis que indique un profesional de salud.</p>
+    <p><strong>Los días más peligrosos suelen empezar entre el día 3 y el 5, muchas veces cuando baja la fiebre</strong>, y duran uno o dos días. Que baje la fiebre no significa que se haya curado.</p>
+    <p><strong>Deben ir al centro de salud aunque no tengan signos de alarma:</strong> embarazadas, bebés menores de 1 año, mayores de 65 años y personas con enfermedades crónicas o que toman anticoagulantes.</p>
+    <p>En casa: reposo y mucho líquido (suero oral, leche, sopa, agua de arroz o jugos, con cuidado si hay diabetes), no solo agua. Duerme con mosquitero mientras haya fiebre, para que el mosquito no contagie a tu familia.</p>
+    <p>No tomes aspirina, ibuprofeno, metamizol (dipirona), diclofenac, naproxeno ni otros antiinflamatorios, y no te pongas inyecciones. Para la fiebre, el medicamento indicado es el acetaminofén (paracetamol), en la dosis que indique un profesional de salud. Si ya tomas aspirina, anticoagulantes u otro tratamiento fijo, consulta a tu médico antes de cambiarlo.</p>
     <p class="tel">Emergencias: <a href="tel:911">911</a></p>
   </section>
 
@@ -366,6 +386,22 @@ function ubicar() {
 /* ─── Formulario ─── */
 function tipo() { return document.querySelector('input[name=tipo]:checked').value; }
 function radio(n) { const r = document.querySelector('input[name=' + n + ']:checked'); return r ? r.value : ''; }
+/* Mismo criterio que consejosFiebre_ en Code.gs. Pendiente de validación sanitaria. */
+function consejosFiebre(r) {
+  const m = [];
+  if (r.alarma !== 'si' && (r.riesgo === 'si' || r.edad === '65+')) m.push('Por su situación, esta persona debe ser valorada hoy en un centro de salud, aunque no tenga signos de alarma.');
+  if (r.alarma !== 'si' && r.dias === '8+') m.push('Más de 7 días con fiebre necesita valoración médica. Acude a un centro de salud.');
+  if (r.alarma !== 'si' && r.riesgo !== 'si' && r.edad !== '65+' && r.dias !== '8+' && r.consulto === 'no')
+    m.push('Te recomendamos consultar en un centro de salud: la fiebre puede ser dengue y el seguimiento médico salva vidas.');
+  if (r.dias === '3' || r.dias === '4-7') m.push('Está en los días de mayor riesgo. Vigila los signos de alarma con más atención, sobre todo cuando baje la fiebre.');
+  if (r.prueba === 'neg') m.push('Una prueba negativa en los primeros días no descarta el dengue. Sigue vigilando los signos de alarma.');
+  return m;
+}
+function mostrarConsejos(lista) {
+  const c = $('#consejo');
+  c.replaceChildren(...lista.map(t => { const p = document.createElement('p'); p.textContent = t; return p; }));
+  c.hidden = !lista.length;
+}
 function msg(t, error) { const m = $('#form-msg'); m.textContent = t; m.classList.toggle('error', !!error); }
 
 function marcar(lat, lon) {
@@ -391,7 +427,7 @@ $('#abrir-form').addEventListener('click', () => {
 
 document.querySelectorAll('input[name=tipo]').forEach(r => r.addEventListener('change', () => {
   const c = tipo() === 'criadero';
-  $('#f-criadero').hidden = !c; $('#f-fiebre').hidden = c; msg(''); $('#urgente').hidden = true;
+  $('#f-criadero').hidden = !c; $('#f-fiebre').hidden = c; msg(''); $('#urgente').hidden = true; $('#consejo').hidden = true;
   if (c && mini) setTimeout(() => mini.invalidateSize(), 50);
 }));
 
@@ -411,7 +447,7 @@ $('#detectar-sector').addEventListener('click', async () => {
 });
 
 $('#formulario').addEventListener('submit', async ev => {
-  ev.preventDefault(); msg(''); $('#urgente').hidden = true;
+  ev.preventDefault(); msg(''); $('#urgente').hidden = true; $('#consejo').hidden = true;
   const payload = { canal: 'web', tipo: tipo(), t0, website: $('#website').value };
 
   if (payload.tipo === 'criadero') {
@@ -420,8 +456,8 @@ $('#formulario').addEventListener('submit', async ev => {
     if (!sectorDe(ll.lat, ll.lng)) return msg('Ese punto queda fuera de la zona del piloto.', true);
     Object.assign(payload, { lat: ll.lat, lon: ll.lng, categoria: $('#categoria').value });
   } else {
-    const alarma = radio('alarma'), consulto = radio('consulto');
-    if (!alarma || !consulto) return msg('Responde a las preguntas sobre signos de alarma y consulta médica.', true);
+    const alarma = radio('alarma'), consulto = radio('consulto'), riesgo = radio('riesgo');
+    if (!alarma || !consulto || !riesgo) return msg('Responde a las preguntas sobre signos de alarma, consulta médica y situación de riesgo.', true);
     if (!$('#consent').checked) return msg('Para enviar, acepta el registro anónimo.', true);
     Object.assign(payload, { sector_id: $('#sector').value, edad: $('#edad').value, dias: $('#dias').value, alarma, consulto, prueba: $('#prueba').value });
   }
@@ -443,7 +479,9 @@ $('#formulario').addEventListener('submit', async ev => {
     msg(pre + (res.duplicado ? 'Ya había un reporte en ese punto. Gracias por confirmarlo.' : 'Reporte enviado. Aparecerá en el mapa cuando se confirme.'));
   } else {
     msg(pre + 'Reporte enviado de forma anónima. Gracias.');
+    mostrarConsejos(consejosFiebre(Object.assign({ riesgo: radio('riesgo') }, payload)));
     if (payload.alarma === 'si') { $('#urgente').hidden = false; $('#urgente').scrollIntoView({ block: 'center' }); }
+    else if (!$('#consejo').hidden) $('#consejo').scrollIntoView({ block: 'center' });
   }
 });
 
